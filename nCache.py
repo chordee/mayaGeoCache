@@ -308,8 +308,6 @@ class NCacheMC:
 
             f.write(block)
 
-            i = 0
-
             for i,ch in enumerate(self._channel):
                 pointsArray = [] 
                 if self._chancelTypes[i] == 'FloatVectorArray':
@@ -348,8 +346,6 @@ class NCacheMC:
                     if self._chancelTypes[i] == 'FloatVectorArray':
                         if (p_amount*3*4) % 8 != 0:
                             f.write(struct.pack('>L',0))
-
-                i += 1
 
             f.flush()
 
@@ -433,5 +429,5 @@ if __name__ == '__main__':
             mc = NCacheMC(xml_path = xml)
             mc.setFrame(frame = i)
             mc.read()
-            print mc.getAmount()
+            print mc.getChannels()
             mc.write()
