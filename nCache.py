@@ -219,8 +219,8 @@ class NCacheMC:
         else:
             self._head = file.read(92)
             head = struct.unpack(self.__mcx_head_unpack_string, self._head)
-            block = struct.unpack('>4s3L4s', file.read(20))
-            blockDataLength = block[3]
+            block = struct.unpack('>4sLQ4s', file.read(20))
+            blockDataLength = block[2]
         
         self._pointsArray = []
 
@@ -248,20 +248,20 @@ class NCacheMC:
         else:
             step = 112
             for i in range(len(self._channel)):
-                temp = struct.unpack('>4s3L', file.read(16))
-                name_length = int(math.ceil(float(temp[3])/8)*8)
+                temp = struct.unpack('>4sLQ', file.read(16))
+                name_length = int(math.ceil(float(temp[2])/8)*8)
                 temp = struct.unpack('>'+str(name_length)+'s', file.read(name_length))
-                temp = struct.unpack('>4s5L4s3L', file.read(40))
-                step_push = int(math.ceil(float(temp[9])/8)*8)
+                temp = struct.unpack('>4sLQ2L4sLQ', file.read(40))
+                step_push = int(math.ceil(float(temp[7])/8)*8)
                 step += 16+name_length+40+step_push
 
-                if temp[6] == 'FVCA':
-                    self._p_amount += temp[9]/12
-                    pos = struct.unpack('>'+str(temp[4]*3)+'f', file.read(temp[9]))
+                if temp[5] == 'FVCA':
+                    self._p_amount += temp[7]/12
+                    pos = struct.unpack('>'+str(temp[3]*3)+'f', file.read(temp[7]))
                     self._pointsArray.append(np.array(pos, dtype=np.float32).reshape(-1,3).tolist())
-                elif temp[6] == 'DVCA':
-                    self._p_amount += temp[9]/24
-                    pos = struct.unpack('>'+str(temp[4]*3)+'d', file.read(temp[9]))
+                elif temp[5] == 'DVCA':
+                    self._p_amount += temp[7]/24
+                    pos = struct.unpack('>'+str(temp[3]*3)+'d', file.read(temp[7]))
                     self._pointsArray.append(np.array(pos, dtype=np.float64).reshape(-1,3).tolist())
 
                 file.seek(step)
@@ -278,12 +278,8 @@ class NCacheMC:
             tempNameLength = 0
             self._p_amount = self.getAmount()
 
-            if self._format == 'mcc':
-                for ch in self._channel:    
-                    tempNameLength += (len(ch)+4-(len(ch)%4)) if len(ch)%4 else len(ch)+4
-            else:
-                for ch in self._channel:    
-                    tempNameLength += (len(ch)+8-(len(ch)%8)) if len(ch)%8 else len(ch)+8
+            for ch in self._channel:    
+                tempNameLength += self.__genNameLength(ch)
 
             block = ''
 
@@ -298,13 +294,16 @@ class NCacheMC:
                 block = struct.pack('>4sL4s','FOR4',amount_size*12+28*len(self._channel)+12+tempNameLength-8,'MYCH')
             else:
                 amount_size = 0
+                amout_push = 0
                 for n,i in enumerate(self._pointsArray[:]):
                     if self._chancelTypes[n] == 'FloatVectorArray':
                         amount_size += len(i)
+                        if (len(i)*3*4) % 8 != 0:
+                            amout_push += 1
                     elif self._chancelTypes[n] == 'DoubleVectorArray':
                         amount_size += len(i)*2
 
-                block = struct.pack('>4s3L4s','FOR8',0,0,amount_size*12+56*len(self._channel)+20+tempNameLength-16,'MYCH')
+                block = struct.pack('>4sLQ4s','FOR8',0,amount_size*12+56*len(self._channel)+20+tempNameLength-16+amout_push*4,'MYCH')
 
             f.write(block)
 
@@ -317,10 +316,7 @@ class NCacheMC:
 
                 p_amount = len(pointsArray)
 
-                if self._format == 'mcc':
-                    tempNameLength = (len(ch)+4-(len(ch)%4)) if len(ch)%4 else len(ch)+4
-                else:
-                    tempNameLength = (len(ch)+8-(len(ch)%8)) if len(ch)%8 else len(ch)+8
+                tempNameLength = self.__genNameLength(ch)
 
                 data = ''
 
@@ -394,6 +390,14 @@ class NCacheMC:
 
     def getFormat(self):
         return self._format
+
+    def __genNameLength(self, ch):
+        tempNameLength = ''
+        if self._format == 'mcc':
+            tempNameLength = (len(ch)+4-(len(ch)%4)) if len(ch)%4 else len(ch)+4
+        else:
+            tempNameLength = (len(ch)+8-(len(ch)%8)) if len(ch)%8 else len(ch)+8
+        return tempNameLength
 
     def __genHead(self):
         if self._format == 'mcc':
