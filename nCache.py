@@ -369,6 +369,7 @@ class NCacheMC:
         return self._p_amount
 
     def getPath(self):
+        self.__genPath()
         return self._path
 
     def getStep(self):
