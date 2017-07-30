@@ -2,7 +2,6 @@ import numpy as np
 import struct, math
 import xml.etree.ElementTree as ET
 import os.path
-import threading
 
 def removeNamespace(name, ns = ''):
     temp_name = name.split('|')
