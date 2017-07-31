@@ -185,6 +185,7 @@ class NCacheMC:
             xml.read()
         self._type = xml.getType()
         self._format = xml.getFormat()
+        self._channelTypes = xml.getChannelTypes()
         self._xml = xml
 
         self._step = xml.getStep()
@@ -194,6 +195,7 @@ class NCacheMC:
         self._channels = channels
         self._pointsArray = pointsArray
         self._p_amount = 0
+        
         for i in pointsArray:
             self._p_amount += np.array(i).size/3        
 
@@ -208,7 +210,7 @@ class NCacheMC:
         self._xml = xml
         self._format = xml.getFormat()
         self._channels = xml.getChannels()
-        self._chancelTypes = xml.getChannelTypes()
+        self._channelTypes = xml.getChannelTypes()
 
         if self._format == 'mcc':
             self._head = file.read(48)
@@ -285,9 +287,9 @@ class NCacheMC:
             if self._format == 'mcc':
                 amount_size = 0
                 for n,i in enumerate(self._pointsArray[:]):
-                    if self._chancelTypes[n] == 'FloatVectorArray':
+                    if self._channelTypes[n] == 'FloatVectorArray':
                         amount_size += len(i)
-                    elif self._chancelTypes[n] == 'DoubleVectorArray':
+                    elif self._channelTypes[n] == 'DoubleVectorArray':
                         amount_size += len(i)*2
 
                 block = struct.pack('>4sL4s','FOR4',amount_size*12+28*len(self._channels)+12+tempNameLength-8,'MYCH')
@@ -295,22 +297,25 @@ class NCacheMC:
                 amount_size = 0
                 amout_push = 0
                 for n,i in enumerate(self._pointsArray[:]):
-                    if self._chancelTypes[n] == 'FloatVectorArray':
+                    if self._channelTypes[n] == 'FloatVectorArray':
                         amount_size += len(i)
                         if (len(i)*3*4) % 8 != 0:
                             amout_push += 1
-                    elif self._chancelTypes[n] == 'DoubleVectorArray':
+                    elif self._channelTypes[n] == 'DoubleVectorArray':
                         amount_size += len(i)*2
 
                 block = struct.pack('>4sLQ4s','FOR8',0,amount_size*12+56*len(self._channels)+20+tempNameLength-16+amout_push*4,'MYCH')
 
             f.write(block)
 
+            if self._channelTypes == []:
+                self._channelTypes = ['FloatVectorArray'] * len(self._channels)
+
             for i,ch in enumerate(self._channels):
                 pointsArray = [] 
-                if self._chancelTypes[i] == 'FloatVectorArray':
+                if self._channelTypes[i] == 'FloatVectorArray':
                     pointsArray = np.array(self._pointsArray[i], dtype = np.float32)
-                elif self._chancelTypes[i] == 'DoubleVectorArray':
+                elif self._channelTypes[i] == 'DoubleVectorArray':
                     pointsArray = np.array(self._pointsArray[i], dtype = np.float64)
 
                 p_amount = len(pointsArray)
@@ -320,25 +325,25 @@ class NCacheMC:
                 data = ''
 
                 if self._format == 'mcc':
-                    if self._chancelTypes[i] == 'FloatVectorArray':
+                    if self._channelTypes[i] == 'FloatVectorArray':
                         data = struct.pack('>4sL'+str(tempNameLength)+'s4s2L4sl','CHNM',len(ch)+1,ch,'SIZE',4,p_amount,'FVCA',p_amount*12)
-                    elif self._chancelTypes[i] == 'DoubleVectorArray':
+                    elif self._channelTypes[i] == 'DoubleVectorArray':
                         data = struct.pack('>4sL'+str(tempNameLength)+'s4s2L4sl','CHNM',len(ch)+1,ch,'SIZE',4,p_amount,'DVCA',p_amount*24)
                 else:
-                    if self._chancelTypes[i] == 'FloatVectorArray':
+                    if self._channelTypes[i] == 'FloatVectorArray':
                         data = struct.pack('>4sLQ'+str(tempNameLength)+'s4sLQ2L4sLQ','CHNM',0,len(ch)+1,ch,'SIZE',0,4,p_amount,0,'FVCA',0,p_amount*12)
-                    elif self._chancelTypes[i] == 'DoubleVectorArray':  
+                    elif self._channelTypes[i] == 'DoubleVectorArray':  
                         data = struct.pack('>4sLQ'+str(tempNameLength)+'s4sLQ2L4sLQ','CHNM',0,len(ch)+1,ch,'SIZE',0,4,p_amount,0,'DVCA',0,p_amount*24)
 
                 f.write(data)
 
-                if self._chancelTypes[i] == 'FloatVectorArray':
+                if self._channelTypes[i] == 'FloatVectorArray':
                     f.write(pointsArray.reshape(-1).astype('>f4').tostring())
-                elif self._chancelTypes[i] == 'DoubleVectorArray':
+                elif self._channelTypes[i] == 'DoubleVectorArray':
                     f.write(pointsArray.reshape(-1).astype('>f8').tostring())
 
                 if self._format == 'mcx':
-                    if self._chancelTypes[i] == 'FloatVectorArray':
+                    if self._channelTypes[i] == 'FloatVectorArray':
                         if (p_amount*3*4) % 8 != 0:
                             f.write(struct.pack('>L',0))
 
@@ -419,7 +424,7 @@ class NPCacheMC(NCacheMC, object):
         super(NPCacheMC,self).__init__(xml_path, frame = frame, channels = channels, pointsArray = pointsArray)
 
 if __name__ == '__main__':
-    path = ['C:/temp/ncache/p32.xml', 'C:/temp/ncache/p32d.xml', 'C:/temp/ncache/p64.xml', 'C:/temp/ncache/p64d.xml']
+    path = ['D:/temp/ncache/p32.xml', 'D:/temp/ncache/p32d.xml', 'D:/temp/ncache/p64.xml', 'D:/temp/ncache/p64d.xml']
     for xml in path:
         print xml
         x = NCacheXML(xml)
