@@ -66,7 +66,10 @@ class NCacheXML:
             self._fps = int(6000/timePerFrame)
 
         for child in root.findall('time'):
-            timeRange = '-'.join(child.attrib['Range'].split('-')[0:-1]), child.attrib['Range'].split('-')[-1]
+            if len(child.attrib['Range'].split('-')) < 4:
+                timeRange = '-'.join(child.attrib['Range'].split('-')[0:-1]), child.attrib['Range'].split('-')[-1]
+            else:
+                 timeRange = '-'.join(child.attrib['Range'].split('-')[0:-2]), '-'.join(child.attrib['Range'].split('-')[-2:])
             self._startFrame = int(float(timeRange[0])/timePerFrame)
             self._endFrame = int(float(timeRange[1])/timePerFrame)
 
