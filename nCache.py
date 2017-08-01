@@ -48,7 +48,7 @@ def backwardObj(objs, step):
     else:
         return objs
 
-class NCacheXML:
+class NCacheXML(object):
     def __init__(self, xml, fps = 24, startFrame = 1, endFrame = 200, channels = ['Shape',], cacheFormat = 'mcc', cacheType = 'OneFilePerFrame'):
         self._fps = int(fps)
         self._xml = xml
@@ -58,7 +58,7 @@ class NCacheXML:
         self._format = cacheFormat
         self._type = cacheType
         self._channelTypes = []
-        self._channelInterpretation = []
+        self._channelInters = []
 
     def read(self):
         self.tree = ET.ElementTree(file = self._xml)
@@ -98,7 +98,7 @@ class NCacheXML:
 
         for em in root.findall('Channels'):
             for child in em:
-                self._channelInterpretation.append(child.attrib['ChannelInterpretation'])
+                self._channelInters.append(child.attrib['ChannelInterpretation'])
 
     def write(self):
         with open(self._xml,'wb') as f:
@@ -134,10 +134,10 @@ class NCacheXML:
         elif len(self._channelTypes) != len(self._channels):
             raise
 
-    def __genChannelInterpretation(self):
-        if self._channelInterpretation == []:
-            self._channelInterpretation = ['positions'] * len(self._channels)
-        elif len(self._channelInterpretation) != len(self._channels):
+    def __genChannelInters(self):
+        if self._channelInters == []:
+            self._channelInters = ['positions'] * len(self._channels)
+        elif len(self._channelInters) != len(self._channels):
             raise
 
     def _genXMLString(self):
@@ -154,11 +154,11 @@ class NCacheXML:
             <Channels>\n'
 
         self.__genChannelTypes()
-        self.__genChannelInterpretation()
+        self.__genChannelInters()
 
         i = 0
         for ch in self._channels:
-            self._xml_str += '<channel'+str(i)+' ChannelName="'+self._channels[i]+'" ChannelType="'+self._channelTypes[i]+'" ChannelInterpretation="'+self._channelInterpretation[i]+'" SamplingType="Regular" SamplingRate="'+str(int(timePerFrame))+'" StartTime="'+str(int(self._startFrame*timePerFrame))+'" EndTime="'+str(int(self._endFrame*timePerFrame))+'"/>\n'
+            self._xml_str += '<channel'+str(i)+' ChannelName="'+self._channels[i]+'" ChannelType="'+self._channelTypes[i]+'" ChannelInterpretation="'+self._channelInters[i]+'" SamplingType="Regular" SamplingRate="'+str(int(timePerFrame))+'" StartTime="'+str(int(self._startFrame*timePerFrame))+'" EndTime="'+str(int(self._endFrame*timePerFrame))+'"/>\n'
             i += 1
 
         self._xml_str += '</Channels>\n\
@@ -179,9 +179,9 @@ class NCacheXML:
         return self._channelTypes
 
     def setChannelTypes(self, ch_types):
-        if type(ch_type) is list:
+        if type(ch_types) is list:
             for chtype in ch_types:
-                if not self.__checkType(chtype):
+                if self.__checkType(chtype) == False:
                     raise
             self._channelTypes = ch_types
 
@@ -200,17 +200,17 @@ class NCacheXML:
     def setXMLPath(self, xml):
         self._xml = xml
 
-    def getChannelInterpretation(self):
-        return self._channelInterpretation
+    def getChannelInters(self):
+        return self._channelInters
 
-    def setChannelInterpretation(self, chInters):
-        self._channelInterpretation = chInters
+    def setChannelInters(self, chInters):
+        self._channelInters = chInters
 
     def appendChannel(self, chName, chType = 'FloatVectorArray', chInter = "positions"):
         if self.__checkType(chType):
             self._channels.append(chName)
             self._channelTypes.append(chType)
-            self._channelInterpretation.append(chInter)
+            self._channelInters.append(chInter)
         else:
             raise
 
@@ -223,7 +223,7 @@ class NCacheXML:
 
 ############################
 
-class NCacheMC:
+class NCacheMC(object):
 
     def __init__(self, xml_path, frame = 1, channels = ['Shape',], pointsArray = [[[0,0,0],],]):
         self.__mcc_head_unpack_string = '>4sL8sLl4sLl4sLl'
@@ -359,13 +359,15 @@ class NCacheMC:
                 amout_push = 0
                 for n,i in enumerate(self._pointsArray[:]):
                     if self._channelTypes[n] == 'FloatVectorArray':
-                        amount_size += len(i)
+                        amount_size += len(i)*3
                         if (len(i)*3*4) % 8 != 0:
                             amout_push += 1
                     elif self._channelTypes[n] == 'DoubleVectorArray':
-                        amount_size += len(i)*2
+                        amount_size += len(i)*2*3
+                    elif self._channelTypes[n] == 'DoubleArray':
+                        amount_size += len(i)*3
 
-                block = struct.pack('>4sLQ4s','FOR8',0,amount_size*12+56*len(self._channels)+20+tempNameLength-16+amout_push*4,'MYCH')
+                block = struct.pack('>4sLQ4s','FOR8',0,amount_size*4+56*len(self._channels)+20+tempNameLength-16+amout_push*4,'MYCH')
 
             f.write(block)
 
@@ -399,6 +401,8 @@ class NCacheMC:
                         data = struct.pack('>4sLQ'+str(tempNameLength)+'s4sLQ2L4sLQ','CHNM',0,len(ch)+1,ch,'SIZE',0,4,p_amount,0,'FVCA',0,p_amount*12)
                     elif self._channelTypes[i] == 'DoubleVectorArray':  
                         data = struct.pack('>4sLQ'+str(tempNameLength)+'s4sLQ2L4sLQ','CHNM',0,len(ch)+1,ch,'SIZE',0,4,p_amount,0,'DVCA',0,p_amount*24)
+                    elif self._channelTypes[i] == 'DoubleArray':  
+                        data = struct.pack('>4sLQ'+str(tempNameLength)+'s4sLQ2L4sLQ','CHNM',0,len(ch)+1,ch,'SIZE',0,4,p_amount,0,'DVCA',0,p_amount*8)
 
                 f.write(data)
 
@@ -421,6 +425,9 @@ class NCacheMC:
 
     def setChannels(self, channels):
         self._channels = channels
+
+    def getChannelTypes(self):
+        return self._channelTypes
 
     def getPointArray(self):
         return self._pointsArray
@@ -488,29 +495,156 @@ class NCacheMC:
         else:
             return
 
-class NPCacheMC(NCacheMC, object):
-    def __init__(self, xml_path, frame = 1, channels = ['Shape',], pointsArray = [[[0,0,0],],]):
-        super(NPCacheMC,self).__init__(xml_path, frame = frame, channels = channels, pointsArray = pointsArray)
+class NPCacheXML(object):
+    def __init__(self, xml_path, name = 'Particle1Shape', attrs = ['id', 'count', 'position'], chTypes = [0, 0, 1]):
+        self.__name = name
+        self.__attrs = attrs
+        self.__xml = NCacheXML(xml_path)
+        self.setAttrs(attrs)
+        self.setChannelTypes(chTypes)
+
+    def setFps(self, fps):
+        self.__xml.setFps(fps)
+
+    def getFps(self):
+        return self.__xml.getFps()
+
+    def setStartFrame(self, start):
+        self.__xml.setStartFrame(start)
+
+    def getStartFrame(self):
+        return self.__xml.getStartFrame()
+
+    def setEndFrame(self, end):
+        self.__xml.setEndFrame(end)
+
+    def getEndFrame(self):
+        return self.__xml.getEndFrame()
+
+    def read(self):
+        self.__xml.read()
+
+    def getChannels(self):
+        return self.__xml.getChannels()
+
+    def getName(self):
+        channels = self.__xml.getChannels()
+        for ch in channels:
+            if ch.endswith('_id'):
+                self.__name = '_'.join(ch.split('_')[:-1])
+                return self.__name
+
+    def setName(self, name):
+        self.__name = name
+        self.__channels = []
+        for attr in self.__attrs:
+            self.__channels.append('_'.join([self.__name, attr]))
+        self.__xml.setChannels(self.__channels)
+
+    def setAttrs(self, attrs):
+        self.__channels = []
+        self.__attrs = attrs
+        for attr in self.__attrs:
+            self.__channels += ['_'.join([self.__name, attr])]
+        self.__xml.setChannels(self.__channels)
+        self.__xml.setChannelInters(self.__attrs)
+
+    def getAttrs(self):
+        return self.__attrs
+
+    def getChannelTypes(self):
+        return self.__xml.getChannelTypes()
+
+    def setChannelTypes(self, chTypes):
+        self.__chTypes = []
+        for chType in chTypes:
+            if chType == 0:
+                self.__chTypes.append('DoubleArray')
+            elif chType == 1:
+                self.__chTypes.append('FloatVectorArray')
+            elif chType == 2:
+                self.__chTypes.append('DoubleVectorArray')
+            else:
+                raise
+        self.__xml.setChannelTypes(self.__chTypes)
+
+    def getXMLString(self):
+        return self.__xml.getXMLString()
+
+    def getXML(self):
+        return self.__xml
+
+    def write(self):
+        self.__xml.write()
+
+    def appendAttr(self, attr, attrType):
+        if attrType == 0:
+            attrType = 'DoubleArray'
+        elif attrType == 1:
+            attrType = 'FloatVectorArray'
+        elif attrType == 2:
+            attrType = 'DoubleVectorArray'
+        else:
+            raise
+        chName = '_'.join([self.__name, attr])
+        self.__xml.appendChannel(chName, chType = attrType, chInter = attr)
+
+
+class NPCacheMC(NCacheMC):
+    def __init__(self, xml_path, *args, **kwargs):
+        super(NPCacheMC, self).__init__(xml_path, *args, **kwargs)
+        self._xml = NPCacheXML(xml_path)
+        self._xml.read()
+        self._channels = self._xml.getChannels()
+        self._channelTypes = self._xml.getChannelTypes()
+        self.__name = self._xml.getName()
+
+    def getName(self):
+        return self.__name
+
+    def getAttrs(self):
+        return self._xml.getChannelInters()
+
+    def getAttrValues(self, attr):
+        chName = '_'.join([self.getName(), attr])
+        index = self.getChannels().index(chName)
+        return self.getPointArray()[index]
+
+
+
 
 if __name__ == '__main__':
-    path = ['D:/temp/ncache/p32.xml', 'D:/temp/ncache/p32d.xml', 'D:/temp/ncache/p64.xml', 'D:/temp/ncache/p64d.xml']
-    #path = ['D:/temp/ncache1/nParticleShape1.xml']
+    #path = ['D:/temp/ncache/p32.xml', 'D:/temp/ncache/p32d.xml', 'D:/temp/ncache/p64.xml', 'D:/temp/ncache/p64d.xml']
+    path = ['D:/temp/ncache1/nParticleShape1.xml']
     for xml in path:
         print xml
-        x = NCacheXML(xml)
-        x.read()
-        x.appendChannel('testShape')
-        print x.getChannelInterpretation()
-        #print x.getXMLString()
-        mc = NCacheMC(xml, frame = 4)
+        x = NPCacheXML(xml)
+
+    xml_path = 'D:/temp/ncache_p/np.xml'
+    xml = NPCacheXML(xml_path)
+    xml.setStartFrame(1)
+    xml.setEndFrame(48)
+    xml.read()
+
+    print xml.getChannelTypes()
+    #print xml.getChannelTypes()
+
+    #xml.write()
+
+
+    mc = NPCacheMC(xml_path)
+    for i in range(1,2):
+ 
+        mc.setFrame(i)
         mc.read()
-        print mc.getEleAmounts()
-        print mc.getAmount()
-        #print mc._pointsArray
+        for i,j in enumerate(mc.getPointArray()):
+            ch = mc.getChannels()[i]
+            na =  mc.getName()
+            print "".join(ch.split(na)[1:])[1:]
+            print mc.getAttrs()
+            print mc.getChannels()
+            #print j
+
+        print mc.getAttrValues('radiusPP')
         #mc.write()
-        print mc.getPointArray()
-        '''
-        for i,a in enumerate(mc.getPointArray()):
-            print mc.getChannels()[i]
-            print a
-        '''
+
