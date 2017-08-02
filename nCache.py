@@ -333,6 +333,7 @@ class NCacheMC(object):
                 file.seek(step)
             self._p_amount = sum(self._ele_amounts)
         file.close()
+        return True
 
     def write(self):
         self.__genPath()
@@ -616,6 +617,12 @@ class NPCacheMC(NCacheMC):
         index = self.getChannels().index(chName)
         return self.getPointArray()[index]
 
+    def getStartFrame(self):
+        return self._xml.getStartFrame()
+
+    def getEndFrame(self):
+        return self._xml.getEndFrame()
+
 
 
 
@@ -641,7 +648,7 @@ if __name__ == '__main__':
 
 
     mc = NPCacheMC(xml_path)
-    for i in range(1,2):
+    for i in range(1,5):
  
         mc.setFrame(i)
         if mc.read():
