@@ -72,3 +72,5 @@ getPath() *回傳目前 cache 檔的路徑位置*
 getCannelTypes()
 
 getEleAmounts() *List: 回傳各個 cahnnel 的點數量*
+
+getPointArray()
