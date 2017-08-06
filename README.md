@@ -47,4 +47,28 @@ getChannelInters()
 
 # Cache File Class #
 
-NCacheMC(xml_path, frame = 1, channel = ['Shape',], pointsArray = [[[0,0,0],],])
+NCacheMC(xml_path, frame = 1, channel = ['Shape',], pointsArray = [[[0,0,0],],])  
+
+*cache 檔的路徑由 xml_path 和 frame 自動產生，pointArray 為 numpy array 的 list*
+
+read() *讀取 cache 檔內容*
+
+write() *寫入 cache 檔內容*
+
+setFrame(frame)
+
+setXMLPath(xml_path)
+
+setChannels(channels)
+
+setPointArray(pArray) *pArray 為 List 裡面放置 numpy 2D array*
+
+getAmount() *回傳總共 points 數量*
+
+getFrame()
+
+getPath() *回傳目前 cache 檔的路徑位置*
+
+getCannelTypes()
+
+getEleAmounts() *List: 回傳各個 cahnnel 的點數量*
