@@ -103,7 +103,7 @@ getName()
 
 # class NPCacheMC
 
-繼承自 NCacheMC 具有 attr 操作的 function。attr value 因屬性不同會具有不同長度的 numpy array。
+繼承自 NCacheMC 具有 attr 操作的 function。attr value 因屬性不同會具有不同長度的 numpy array。如果是 VectorArray 就是 n x 3 array，DoubleAray 就是 1d array。count 屬性是只具有一個整數單位的 array。
 
 NPCacheMC(xml)
 
