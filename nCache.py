@@ -502,40 +502,16 @@ class NCacheMC(object):
         else:
             return
 
-class NPCacheXML(object):
-    def __init__(self, xml_path, name = 'Particle1Shape', attrs = ['id', 'count', 'position'], chTypes = [0, 0, 1]):
+class NPCacheXML(NCacheXML):
+    def __init__(self, xml_path, name = 'nParticleShape', attrs = ['id', 'count', 'position'], chTypes = [0, 0, 1]):
+        super(NPCacheXML, self).__init__(xml_path)
         self.__name = name
-        self.__attrs = attrs
-        self.__xml = NCacheXML(xml_path)
+        self._channelInters = attrs
         self.setAttrs(attrs)
         self.setChannelTypes(chTypes)
 
-    def setFps(self, fps):
-        self.__xml.setFps(fps)
-
-    def getFps(self):
-        return self.__xml.getFps()
-
-    def setStartFrame(self, start):
-        self.__xml.setStartFrame(start)
-
-    def getStartFrame(self):
-        return self.__xml.getStartFrame()
-
-    def setEndFrame(self, end):
-        self.__xml.setEndFrame(end)
-
-    def getEndFrame(self):
-        return self.__xml.getEndFrame()
-
-    def read(self):
-        self.__xml.read()
-
-    def getChannels(self):
-        return self.__xml.getChannels()
-
     def getName(self):
-        channels = self.__xml.getChannels()
+        channels = self.getChannels()
         for ch in channels:
             if ch.endswith('_id'):
                 self.__name = '_'.join(ch.split('_')[:-1])
@@ -543,46 +519,30 @@ class NPCacheXML(object):
 
     def setName(self, name):
         self.__name = name
-        self.__channels = []
+        self._channels = []
         for attr in self.__attrs:
-            self.__channels.append('_'.join([self.__name, attr]))
-        self.__xml.setChannels(self.__channels)
+            self._channels.append('_'.join([self.__name, attr]))
 
     def setAttrs(self, attrs):
-        self.__channels = []
-        self.__attrs = attrs
+        self._channels = []
+        self._channelInters = attrs
         for attr in self.__attrs:
-            self.__channels += ['_'.join([self.__name, attr])]
-        self.__xml.setChannels(self.__channels)
-        self.__xml.setChannelInters(self.__attrs)
+            self._channels += ['_'.join([self.__name, attr])]
 
     def getAttrs(self):
-        return self.__attrs
-
-    def getChannelTypes(self):
-        return self.__xml.getChannelTypes()
+        return self._channelInters
 
     def setChannelTypes(self, chTypes):
-        self.__chTypes = []
+        self._channelTypes = []
         for chType in chTypes:
             if chType == 0:
-                self.__chTypes.append('DoubleArray')
+                self._channelTypes.append('DoubleArray')
             elif chType == 1:
-                self.__chTypes.append('FloatVectorArray')
+                self._channelTypes.append('FloatVectorArray')
             elif chType == 2:
-                self.__chTypes.append('DoubleVectorArray')
+                self._channelTypes.append('DoubleVectorArray')
             else:
                 raise
-        self.__xml.setChannelTypes(self.__chTypes)
-
-    def getXMLString(self):
-        return self.__xml.getXMLString()
-
-    def getXML(self):
-        return self.__xml
-
-    def write(self):
-        self.__xml.write()
 
     def appendAttr(self, attr, attrType):
         if attrType == 0:
@@ -592,9 +552,9 @@ class NPCacheXML(object):
         elif attrType == 2:
             attrType = 'DoubleVectorArray'
         else:
-            raise
+            raise ValueError
         chName = '_'.join([self.__name, attr])
-        self.__xml.appendChannel(chName, chType = attrType, chInter = attr)
+        self.appendChannel(chName, chType = attrType, chInter = attr)
 
 
 class NPCacheMC(NCacheMC):
