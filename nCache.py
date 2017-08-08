@@ -520,13 +520,13 @@ class NPCacheXML(NCacheXML):
     def setName(self, name):
         self.__name = name
         self._channels = []
-        for attr in self.__attrs:
+        for attr in self._channelInters:
             self._channels.append('_'.join([self.__name, attr]))
 
     def setAttrs(self, attrs):
         self._channels = []
         self._channelInters = attrs
-        for attr in self.__attrs:
+        for attr in self._channelInters:
             self._channels += ['_'.join([self.__name, attr])]
 
     def getAttrs(self):
