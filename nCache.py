@@ -585,37 +585,3 @@ class NPCacheMC(NCacheMC):
 
 
 
-
-if __name__ == '__main__':
-    path = ['D:/temp/ncache/p32.xml', 'D:/temp/ncache/p32d.xml', 'D:/temp/ncache/p64.xml', 'D:/temp/ncache/p64d.xml']
-    #path = ['D:/temp/ncache1/nParticleShape1.xml']
-    for xml in path:
-        print xml
-        x = NPCacheXML(xml)
-
-    #xml_path = 'D:/temp/ncache_p/np.xml'
-    xml_path = 'D:/temp/ncache4/nParticleShape1.xml'
-    #xml_path = path[2]
-    xml = NPCacheXML(xml_path)
-    xml.setStartFrame(1)
-    xml.setEndFrame(48)
-    xml.read()
-
-    print xml.getChannelTypes()
-    #print xml.getChannelTypes()
-
-    #xml.write()
-
-
-    mc = NPCacheMC(xml_path)
-    for i in range(1,5):
- 
-        mc.setFrame(i)
-        if mc.read():
-            for attr in mc.getAttrs():
-                if attr == 'count':
-                    print attr
-                    print mc.getAttrValues(attr)
-        #print mc.getAttrValues('radiusPP')
-        #mc.write()
-
