@@ -1,8 +1,9 @@
-import numpy as np
-import struct
 import math
-import xml.etree.ElementTree as ET
 import os.path
+import struct
+import xml.etree.ElementTree as ET
+
+import numpy as np
 
 '''
 ['DoubleArray', 'FloatVectorArray', 'DoubleVectorArray']
@@ -17,7 +18,7 @@ def removeNamespace(name, ns=''):
             fixed_name.append(name.split(':')[-1])
         else:
             fixed_name.append(
-                ":".join([x for x in name.split(':') if x != ns]))
+                ':'.join([x for x in name.split(':') if x != ns]))
     fixed_name = '|'.join(fixed_name)
 
     return fixed_name
@@ -46,17 +47,26 @@ def backwardObj(objs, step):
     if step > 0:
         for obj in objs:
             temp_name = obj.split('|')
-            if len(temp_name) < (step+1):
+            if len(temp_name) < (step + 1):
                 fixed.append(temp_name[-1])
             else:
-                fixed.append("|".join(temp_name[step:]))
+                fixed.append('|'.join(temp_name[step:]))
         return fixed
     else:
         return objs
 
 
 class NCacheXML(object):
-    def __init__(self, xml, fps=24, startFrame=1, endFrame=200, channels=['Shape', ], cacheFormat='mcc', cacheType='OneFilePerFrame'):
+
+    def __init__(self,
+                 xml,
+                 fps=24,
+                 startFrame=1,
+                 endFrame=200,
+                 channels=['Shape', ],
+                 cacheFormat='mcc',
+                 cacheType='OneFilePerFrame'):
+        """"""
         self._fps = int(fps)
         self._xml = xml
         self._startFrame = int(startFrame)
@@ -75,17 +85,22 @@ class NCacheXML(object):
 
         for child in root.findall('cacheTimePerFrame'):
             timePerFrame = int(float(child.attrib['TimePerFrame']))
-            self._fps = int(6000/timePerFrame)
+            self._fps = int(6000 / timePerFrame)
 
         for child in root.findall('time'):
             if len(child.attrib['Range'].split('-')) < 4:
-                timeRange = '-'.join(child.attrib['Range'].split(
-                    '-')[0:-1]), child.attrib['Range'].split('-')[-1]
+                timeRange = (
+                    '-'.join(child.attrib['Range'].split('-')[0:-1]),
+                    child.attrib['Range'].split('-')[-1]
+                )
             else:
-                timeRange = '-'.join(child.attrib['Range'].split('-')[0:-2]), '-'.join(
-                    child.attrib['Range'].split('-')[-2:])
-            self._startFrame = int(float(timeRange[0])/timePerFrame)
-            self._endFrame = int(float(timeRange[1])/timePerFrame)
+                timeRange = (
+                    '-'.join(child.attrib['Range'].split('-')[0:-2]),
+                    '-'.join(child.attrib['Range'].split('-')[-2:])
+                )
+
+            self._startFrame = int(float(timeRange[0]) / timePerFrame)
+            self._endFrame = int(float(timeRange[1]) / timePerFrame)
 
         for child in root.findall('cacheType'):
             self._format = child.attrib['Format']
@@ -112,7 +127,6 @@ class NCacheXML(object):
 
     def write(self):
         with open(self._xml, 'wb') as f:
-
             self._genXMLString()
 
             root = ET.fromstring(self._xml_str)
@@ -151,14 +165,14 @@ class NCacheXML(object):
 
     def _genXMLString(self):
 
-        timePerFrame = int(6000/self._fps)
+        timePerFrame = int(6000 / self._fps)
         cacheType = self._type
 
         self._xml_str = '<?xml version="1.0"?>\n\
         <Autodesk_Cache_File>\n\
-            <cacheType Type="'+cacheType+'" Format="'+self._format+'"/>\n\
-            <time Range="'+str(int(self._startFrame*timePerFrame))+'-'+str(int(self._endFrame*timePerFrame))+'"/>\n\
-            <cacheTimePerFrame TimePerFrame="'+str(int(timePerFrame))+'"/>\n\
+            <cacheType Type="' + cacheType + '" Format="' + self._format + '"/>\n\
+            <time Range="' + str(int(self._startFrame * timePerFrame)) + '-' + str(int(self._endFrame * timePerFrame)) + '"/>\n\
+            <cacheTimePerFrame TimePerFrame="' + str(int(timePerFrame)) + '"/>\n\
             <cacheVersion Version="2.0"/>\n\
             <Channels>\n'
 
@@ -167,8 +181,11 @@ class NCacheXML(object):
 
         i = 0
         for ch in self._channels:
-            self._xml_str += '<channel'+str(i)+' ChannelName="'+self._channels[i]+'" ChannelType="'+self._channelTypes[i]+'" ChannelInterpretation="'+self._channelInters[i]+'" SamplingType="Regular" SamplingRate="'+str(
-                int(timePerFrame))+'" StartTime="'+str(int(self._startFrame*timePerFrame))+'" EndTime="'+str(int(self._endFrame*timePerFrame))+'"/>\n'
+            self._xml_str += '<channel' + str(i) + ' ChannelName="' + self._channels[i] + '" ChannelType="' + \
+                             self._channelTypes[i] + '" ChannelInterpretation="' + self._channelInters[
+                                 i] + '" SamplingType="Regular" SamplingRate="' + str(
+                int(timePerFrame)) + '" StartTime="' + str(int(self._startFrame * timePerFrame)) + '" EndTime="' + str(
+                int(self._endFrame * timePerFrame)) + '"/>\n'
             i += 1
 
         self._xml_str += '</Channels>\n\
@@ -202,7 +219,7 @@ class NCacheXML(object):
         self._format = fmt
 
     def getStep(self):
-        return 6000/self._fps
+        return 6000 / self._fps
 
     def getType(self):
         return self._type
@@ -231,12 +248,18 @@ class NCacheXML(object):
         else:
             return False
 
+
 ############################
 
 
 class NCacheMC(object):
 
-    def __init__(self, xml_path, frame=1, channels=['Shape', ], pointsArray=[[[0, 0, 0], ], ]):
+    def __init__(self,
+                 xml_path,
+                 frame=1,
+                 channels=['Shape', ],
+                 pointsArray=[[[0, 0, 0], ], ]):
+
         self.__mcc_head_unpack_string = '>4sL8sLl4sLl4sLl'
         self.__mcx_head_unpack_string = '>4sLQ8sLQ2L4sLQ2l4slQ2l'
         self._xmlpath = xml_path
@@ -258,7 +281,7 @@ class NCacheMC(object):
         self._ele_amounts = []
 
         for i in pointsArray:
-            self._p_amount += np.array(i).size/3
+            self._p_amount += np.array(i).size / 3
 
     def read(self):
         self.__genPath()
@@ -295,28 +318,28 @@ class NCacheMC(object):
                     temp = struct.unpack('>4sL', file.read(8))
                 except:
                     return None
-                name_length = int(math.ceil(float(temp[1])/4)*4)
+                name_length = int(math.ceil(float(temp[1]) / 4) * 4)
                 temp = struct.unpack(
-                    '>'+str(name_length)+'s', file.read(name_length))
+                    '>' + str(name_length) + 's', file.read(name_length))
                 temp = struct.unpack('>4s2L4sl', file.read(20))
-                step += 8+name_length+20+temp[4]
+                step += 8 + name_length + 20 + temp[4]
 
                 if temp[3] == 'FVCA':
-                    self._ele_amounts.append(temp[4]/12)
+                    self._ele_amounts.append(temp[4] / 12)
                     pos = struct.unpack(
-                        '>'+str(temp[2]*3)+'f', file.read(temp[4]))
+                        '>' + str(temp[2] * 3) + 'f', file.read(temp[4]))
                     self._pointsArray.append(
                         np.array(pos, dtype=np.float32).reshape(-1, 3))
                 elif temp[3] == 'DVCA':
-                    self._ele_amounts.append(temp[4]/24)
+                    self._ele_amounts.append(temp[4] / 24)
                     pos = struct.unpack(
-                        '>'+str(temp[2]*3)+'d', file.read(temp[4]))
+                        '>' + str(temp[2] * 3) + 'd', file.read(temp[4]))
                     self._pointsArray.append(
                         np.array(pos, dtype=np.float64).reshape(-1, 3))
                 elif temp[3] == 'DBLA':
-                    self._ele_amounts.append(temp[4]/8)
+                    self._ele_amounts.append(temp[4] / 8)
                     pos = struct.unpack(
-                        '>'+str(temp[2])+'d', file.read(temp[4]))
+                        '>' + str(temp[2]) + 'd', file.read(temp[4]))
                     self._pointsArray.append(
                         np.array(pos, dtype=np.float64).reshape(-1))
 
@@ -329,29 +352,29 @@ class NCacheMC(object):
                     temp = struct.unpack('>4sLQ', file.read(16))
                 except:
                     return None
-                name_length = int(math.ceil(float(temp[2])/8)*8)
+                name_length = int(math.ceil(float(temp[2]) / 8) * 8)
                 temp = struct.unpack(
-                    '>'+str(name_length)+'s', file.read(name_length))
+                    '>' + str(name_length) + 's', file.read(name_length))
                 temp = struct.unpack('>4sLQ2L4sLQ', file.read(40))
-                step_push = int(math.ceil(float(temp[7])/8)*8)
-                step += 16+name_length+40+step_push
+                step_push = int(math.ceil(float(temp[7]) / 8) * 8)
+                step += 16 + name_length + 40 + step_push
 
                 if temp[5] == 'FVCA':
-                    self._ele_amounts.append(temp[7]/12)
+                    self._ele_amounts.append(temp[7] / 12)
                     pos = struct.unpack(
-                        '>'+str(temp[3]*3)+'f', file.read(temp[7]))
+                        '>' + str(temp[3] * 3) + 'f', file.read(temp[7]))
                     self._pointsArray.append(
                         np.array(pos, dtype=np.float32).reshape(-1, 3))
                 elif temp[5] == 'DVCA':
-                    self._ele_amounts.append(temp[7]/24)
+                    self._ele_amounts.append(temp[7] / 24)
                     pos = struct.unpack(
-                        '>'+str(temp[3]*3)+'d', file.read(temp[7]))
+                        '>' + str(temp[3] * 3) + 'd', file.read(temp[7]))
                     self._pointsArray.append(
                         np.array(pos, dtype=np.float64).reshape(-1, 3))
                 elif temp[5] == 'DBLA':
-                    self._ele_amounts.append(temp[7]/8)
+                    self._ele_amounts.append(temp[7] / 8)
                     pos = struct.unpack(
-                        '>'+str(temp[3])+'d', file.read(temp[7]))
+                        '>' + str(temp[3]) + 'd', file.read(temp[7]))
                     self._pointsArray.append(
                         np.array(pos, dtype=np.float64).reshape(-1))
 
@@ -380,28 +403,28 @@ class NCacheMC(object):
                 amount_size = 0
                 for n, i in enumerate(self._pointsArray[:]):
                     if self._channelTypes[n] == 'FloatVectorArray':
-                        amount_size += len(i)*3
+                        amount_size += len(i) * 3
                     elif self._channelTypes[n] == 'DoubleVectorArray':
-                        amount_size += len(i)*2*3
+                        amount_size += len(i) * 2 * 3
                     elif self._channelTypes[n] == 'DoubleArray':
-                        amount_size += len(i)*2
+                        amount_size += len(i) * 2
                 block = struct.pack('>4sL4s', b'FOR4', amount_size *
-                                    4+28*len(self._channels)+12+tempNameLength-8, b'MYCH')
+                                    4 + 28 * len(self._channels) + 12 + tempNameLength - 8, b'MYCH')
             else:
                 amount_size = 0
                 amout_push = 0
                 for n, i in enumerate(self._pointsArray[:]):
                     if self._channelTypes[n] == 'FloatVectorArray':
-                        amount_size += len(i)*3
-                        if (len(i)*3*4) % 8 != 0:
+                        amount_size += len(i) * 3
+                        if (len(i) * 3 * 4) % 8 != 0:
                             amout_push += 1
                     elif self._channelTypes[n] == 'DoubleVectorArray':
-                        amount_size += len(i)*2*3
+                        amount_size += len(i) * 2 * 3
                     elif self._channelTypes[n] == 'DoubleArray':
-                        amount_size += len(i)*3
+                        amount_size += len(i) * 3
 
-                block = struct.pack('>4sLQ4s', b'FOR8', 0, amount_size*4+56 *
-                                    len(self._channels)+20+tempNameLength-16+amout_push*4, b'MYCH')
+                block = struct.pack('>4sLQ4s', b'FOR8', 0, amount_size * 4 + 56 *
+                                    len(self._channels) + 20 + tempNameLength - 16 + amout_push * 4, b'MYCH')
 
             f.write(block)
 
@@ -425,24 +448,24 @@ class NCacheMC(object):
 
                 if self._format == 'mcc':
                     if self._channelTypes[i] == 'FloatVectorArray':
-                        data = struct.pack('>4sL'+str(tempNameLength)+'s4s2L4sl', b'CHNM', len(
-                            ch)+1, str.encode(ch), b'SIZE', 4, p_amount, b'FVCA', p_amount*12)
+                        data = struct.pack('>4sL' + str(tempNameLength) + 's4s2L4sl', b'CHNM', len(
+                            ch) + 1, str.encode(ch), b'SIZE', 4, p_amount, b'FVCA', p_amount * 12)
                     elif self._channelTypes[i] == 'DoubleVectorArray':
-                        data = struct.pack('>4sL'+str(tempNameLength)+'s4s2L4sl', b'CHNM', len(
-                            ch)+1, str.encode(ch), b'SIZE', 4, p_amount, b'DVCA', p_amount*24)
+                        data = struct.pack('>4sL' + str(tempNameLength) + 's4s2L4sl', b'CHNM', len(
+                            ch) + 1, str.encode(ch), b'SIZE', 4, p_amount, b'DVCA', p_amount * 24)
                     elif self._channelTypes[i] == 'DoubleArray':
-                        data = struct.pack('>4sL'+str(tempNameLength)+'s4s2L4sl', b'CHNM', len(
-                            ch)+1, str.encode(ch), b'SIZE', 4, p_amount, b'DBLA', p_amount*8)
+                        data = struct.pack('>4sL' + str(tempNameLength) + 's4s2L4sl', b'CHNM', len(
+                            ch) + 1, str.encode(ch), b'SIZE', 4, p_amount, b'DBLA', p_amount * 8)
                 else:
                     if self._channelTypes[i] == 'FloatVectorArray':
-                        data = struct.pack('>4sLQ'+str(tempNameLength)+'s4sLQ2L4sLQ', b'CHNM', 0, len(
-                            ch)+1, str.encode(ch), b'SIZE', 0, 4, p_amount, 0, b'FVCA', 0, p_amount*12)
+                        data = struct.pack('>4sLQ' + str(tempNameLength) + 's4sLQ2L4sLQ', b'CHNM', 0, len(
+                            ch) + 1, str.encode(ch), b'SIZE', 0, 4, p_amount, 0, b'FVCA', 0, p_amount * 12)
                     elif self._channelTypes[i] == 'DoubleVectorArray':
-                        data = struct.pack('>4sLQ'+str(tempNameLength)+'s4sLQ2L4sLQ', b'CHNM', 0, len(
-                            ch)+1, str.encode(ch), b'SIZE', 0, 4, p_amount, 0, b'DVCA', 0, p_amount*24)
+                        data = struct.pack('>4sLQ' + str(tempNameLength) + 's4sLQ2L4sLQ', b'CHNM', 0, len(
+                            ch) + 1, str.encode(ch), b'SIZE', 0, 4, p_amount, 0, b'DVCA', 0, p_amount * 24)
                     elif self._channelTypes[i] == 'DoubleArray':
-                        data = struct.pack('>4sLQ'+str(tempNameLength)+'s4sLQ2L4sLQ', b'CHNM', 0, len(
-                            ch)+1, str.encode(ch), b'SIZE', 0, 4, p_amount, 0, b'DVCA', 0, p_amount*8)
+                        data = struct.pack('>4sLQ' + str(tempNameLength) + 's4sLQ2L4sLQ', b'CHNM', 0, len(
+                            ch) + 1, str.encode(ch), b'SIZE', 0, 4, p_amount, 0, b'DVCA', 0, p_amount * 8)
 
                 f.write(data)
 
@@ -455,7 +478,7 @@ class NCacheMC(object):
 
                 if self._format == 'mcx':
                     if self._channelTypes[i] == 'FloatVectorArray':
-                        if (p_amount*3*4) % 8 != 0:
+                        if (p_amount * 3 * 4) % 8 != 0:
                             f.write(struct.pack('>L', 0))
 
             f.flush()
@@ -514,30 +537,32 @@ class NCacheMC(object):
     def __genNameLength(self, ch):
         tempNameLength = ''
         if self._format == 'mcc':
-            tempNameLength = (len(ch)+4-(len(ch) % 4)
-                              ) if len(ch) % 4 else len(ch)+4
+            tempNameLength = (len(ch) + 4 - (len(ch) % 4)
+                              ) if len(ch) % 4 else len(ch) + 4
         else:
-            tempNameLength = (len(ch)+8-(len(ch) % 8)
-                              ) if len(ch) % 8 else len(ch)+8
+            tempNameLength = (len(ch) + 8 - (len(ch) % 8)
+                              ) if len(ch) % 8 else len(ch) + 8
         return tempNameLength
 
     def __genHead(self):
         if self._format == 'mcc':
             self._head = struct.pack(self.__mcc_head_unpack_string, b'FOR4', 40, b'CACHVRSN', 4,
-                                     808333568, b'STIM', 4, int(self._step*self._frame), b'ETIM', 4, int(self._step*self._frame))
+                                     808333568, b'STIM', 4, int(self._step * self._frame), b'ETIM', 4,
+                                     int(self._step * self._frame))
         elif self._format == 'mcx':
             self._head = struct.pack(self.__mcx_head_unpack_string, b'FOR8', 0, 76, b'CACHVRSN', 0, 4, 808333568,
-                                     0, b'STIM', 0, 4, int(self._step*self._frame), 0, b'ETIM', 0, 4, int(self._step*self._frame), 0)
+                                     0, b'STIM', 0, 4, int(self._step * self._frame), 0, b'ETIM', 0, 4,
+                                     int(self._step * self._frame), 0)
         else:
             return
 
     def __genPath(self):
         if self._format == 'mcc':
             self._path = self._xmlpath.replace(
-                '.xml', 'Frame'+str(self._frame)+'.mc')
+                '.xml', 'Frame' + str(self._frame) + '.mc')
         elif self._format == 'mcx':
             self._path = self._xmlpath.replace(
-                '.xml', 'Frame'+str(self._frame)+'.mcx')
+                '.xml', 'Frame' + str(self._frame) + '.mcx')
         else:
             return
 
