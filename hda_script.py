@@ -1,8 +1,8 @@
-node = hou.pwd()
 
-import sys, threading
+import threading
 import numpy as np
 import imp
+import hou
 
 
 def cache():
@@ -45,68 +45,84 @@ def cache():
 
     ths = []
 
-    with hou.InterruptableOperation("Cache", "Caching", open_interrupt_dialog=True) as operation:
+    def _int_64(attr):
+        return geo.pointIntAttribValuesAsString(
+            attr, int_type=hou.numericData.Int64
+        )
+
+    def _float_32(attr):
+        return geo.pointFloatAttribValuesAsString(
+            attr
+        )
+
+    def _float_64(attr):
+        return geo.pointFloatAttribValuesAsString(
+            attr, float_type=hou.numericData.Float64
+        )
+
+    # Render
+    #
+    with hou.InterruptableOperation(
+            "Cache", "Caching", open_interrupt_dialog=True) as operation:
+
         for i in range(start_frame, end_frame + 1):
             hou.setFrame(i)
             data_array = []
 
             check_id_attr = geo.findPointAttrib('id')
-            if check_id_attr == None:
+            if check_id_attr is None:
                 hou.ui.displayMessage('Point id attribute not found')
                 break
-                return
-            id_array = np.fromstring(geo.pointIntAttribValuesAsString('id', int_type=hou.numericData.Int64),
-                                     dtype=np.int64)
+
+            id_array = np.fromstring(_int_64('id'), dtype=np.int64)
             data_array.append(id_array)
 
             count_array = np.array([len(geo.points())])
             data_array.append(count_array)
 
-            pos_array = np.fromstring(geo.pointFloatAttribValuesAsString('P'), dtype=np.float32).reshape(-1, 3)
+            pos_array = np.fromstring(_float_32('P'), dtype=np.float32).reshape(-1, 3)
             data_array.append(pos_array)
 
             if 'v' in attrs:
-                vel_array = np.fromstring(geo.pointFloatAttribValuesAsString('v'), dtype=np.float32).reshape(-1, 3)
+                vel_array = np.fromstring(_float_32('v'), dtype=np.float32).reshape(-1, 3)
                 data_array.append(vel_array)
 
             if 'age' in attrs:
-                age_array = np.fromstring(geo.pointFloatAttribValuesAsString('age', float_type=hou.numericData.Float64),
-                                          dtype=np.float64)
+                age_array = np.fromstring(_float_64('age'), dtype=np.float64)
                 data_array.append(age_array)
 
             if 'life' in attrs:
-                life_array = np.fromstring(
-                    geo.pointFloatAttribValuesAsString('life', float_type=hou.numericData.Float64), dtype=np.float64)
+                life_array = np.fromstring(_float_64('life'), dtype=np.float64)
                 data_array.append(life_array)
 
             if 'pscale' in attrs:
-                pscale_array = np.fromstring(
-                    geo.pointFloatAttribValuesAsString('pscale', float_type=hou.numericData.Float64), dtype=np.float64)
+                pscale_array = np.fromstring(_float_64('pscale'), dtype=np.float64)
                 data_array.append(pscale_array)
 
             if 'Cd' in attrs:
-                cd_array = np.fromstring(geo.pointFloatAttribValuesAsString('Cd'), dtype=np.float32).reshape(-1, 3)
+                cd_array = np.fromstring(_float_32('Cd'), dtype=np.float32).reshape(-1, 3)
                 data_array.append(cd_array)
 
             if 'Alpha' in attrs:
-                alpha_array = np.fromstring(
-                    geo.pointFloatAttribValuesAsString('Alpha', float_type=hou.numericData.Float64), dtype=np.float64)
+                alpha_array = np.fromstring(_float_64('Alpha'), dtype=np.float64)
                 data_array.append(alpha_array)
 
             if 'rotation' in attrs:
-                rotation_array = np.fromstring(geo.pointFloatAttribValuesAsString('rotation'),
-                                               dtype=np.float32).reshape(-1, 3)
+                rotation_array = np.fromstring(_float_32('rotation'), dtype=np.float32).reshape(-1, 3)
                 data_array.append(rotation_array)
 
             mc = nc.NPCacheMC(xml_path)
-
             mc.setPointArray(data_array)
-
             mc.setFrame(i)
+
             th = threading.Thread(target=mc.write)
             th.start()
             ths.append(th)
-            operation.updateLongProgress(float(i - start_frame) / (end_frame - start_frame),
-                                         "Exporting Frame %d from %d to %d" % (i, start_frame, end_frame))
+
+            operation.updateLongProgress(
+                float(i - start_frame) / (end_frame - start_frame),
+                "Exporting Frame %d from %d to %d" % (i, start_frame, end_frame)
+            )
+
         for th in ths:
             th.join()
