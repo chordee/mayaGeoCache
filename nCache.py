@@ -180,7 +180,7 @@ class NCacheXML(object):
 
     def _genXMLString(self):
 
-        timePerFrame = int(TICKS_PRE_SECOND / self._fps)
+        ticksPerFrame = self.getTicksPerFrame()
         cacheType = self._type
 
         self._xml_str = '''<Autodesk_Cache_File>
@@ -191,9 +191,9 @@ class NCacheXML(object):
   <Channels>\n'''.format(
             cacheType=cacheType,
             format=self._format,
-            startFrame=int(self._startFrame * timePerFrame),
-            endFrame=int(self._endFrame * timePerFrame),
-            perFrame=int(timePerFrame),
+            startFrame=int(self._startFrame * ticksPerFrame),
+            endFrame=int(self._endFrame * ticksPerFrame),
+            perFrame=int(ticksPerFrame),
         )
 
         self.__genChannelTypes()
@@ -207,9 +207,9 @@ class NCacheXML(object):
                 'ChannelType="%s"' % self._channelTypes[i],
                 'ChannelInterpretation="%s"' % self._channelInters[i],
                 'SamplingType="Regular"',
-                'SamplingRate="%d"' % int(timePerFrame * self._evalRate),
-                'StartTime="%d"' % int(self._startFrame * timePerFrame),
-                'EndTime="%d"' % int(self._endFrame * timePerFrame),
+                'SamplingRate="%d"' % int(ticksPerFrame * self._evalRate),
+                'StartTime="%d"' % int(self._startFrame * ticksPerFrame),
+                'EndTime="%d"' % int(self._endFrame * ticksPerFrame),
                 '/>\n'
             ])
             self._xml_str += _ch_str
@@ -243,8 +243,8 @@ class NCacheXML(object):
     def setFormat(self, fmt):
         self._format = fmt
 
-    def getStep(self):
-        return TICKS_PRE_SECOND / self._fps
+    def getTicksPerFrame(self):
+        return int(TICKS_PRE_SECOND / self._fps)
 
     def getType(self):
         return self._type
@@ -299,7 +299,7 @@ class NCacheMC(object):
         self._channelTypes = xml.getChannelTypes()
         self._xml = xml
 
-        self._step = xml.getStep()
+        self._ticks_pre_frame = xml.getTicksPerFrame()
         self._frame = frame
         self.__genPath()
         self.__genHead()
@@ -642,8 +642,8 @@ class NCacheMC(object):
         self.__genPath()
         return self._path
 
-    def getStep(self):
-        return self._frame * self._step
+    def getTime(self):
+        return int(self._frame * self._ticks_pre_frame)
 
     def setFrame(self, frame):
         self._frame = int(frame)
@@ -689,10 +689,10 @@ class NCacheMC(object):
                 808333568,
                 b'STIM',
                 4,
-                int(self._step * self._frame),
+                self.getTime(),
                 b'ETIM',
                 4,
-                int(self._step * self._frame)
+                self.getTime()
             )
 
         elif self._format == 'mcx':
@@ -708,12 +708,12 @@ class NCacheMC(object):
                 b'STIM',
                 0,
                 4,
-                int(self._step * self._frame),
+                self.getTime(),
                 0,
                 b'ETIM',
                 0,
                 4,
-                int(self._step * self._frame),
+                self.getTime(),
                 0
             )
 
