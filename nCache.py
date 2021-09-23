@@ -63,10 +63,12 @@ class NCacheXML(object):
                  fps=24,
                  startFrame=1,
                  endFrame=200,
-                 channels=['Shape', ],
+                 channels=None,
                  cacheFormat='mcc',
                  cacheType='OneFilePerFrame'):
         """"""
+        channels = channels or ['Shape', ]
+
         self._fps = int(fps)
         self._xml = xml
         self._startFrame = int(startFrame)
@@ -253,12 +255,15 @@ class NCacheXML(object):
 
 
 class NCacheMC(object):
-
+    """"""
     def __init__(self,
                  xml_path,
                  frame=1,
-                 channels=['Shape', ],
-                 pointsArray=[[[0, 0, 0], ], ]):
+                 channels=None,
+                 pointsArray=None):
+        """"""
+        channels = channels or ['Shape', ]
+        pointsArray = pointsArray or [[[0, 0, 0], ], ]
 
         self.__mcc_head_unpack_string = '>4sL8sLl4sLl4sLl'
         self.__mcx_head_unpack_string = '>4sLQ8sLQ2L4sLQ2l4slQ2l'
@@ -568,8 +573,18 @@ class NCacheMC(object):
 
 
 class NPCacheXML(NCacheXML):
-    def __init__(self, xml_path, name='nParticleShape', attrs=['id', 'count', 'position'], chTypes=[0, 0, 1]):
+
+    def __init__(self,
+                 xml_path,
+                 name='nParticleShape',
+                 attrs=None,
+                 chTypes=None):
+        """"""
         super(NPCacheXML, self).__init__(xml_path)
+
+        attrs = attrs or ['id', 'count', 'position']
+        chTypes = chTypes or [0, 0, 1]
+
         self.__name = name
         self._channelInters = attrs
         self.setAttrs(attrs)
