@@ -25,6 +25,7 @@ def cache():
     xml.setFps(fps)
     xml.setStartFrame(start_frame)
     xml.setEndFrame(end_frame)
+    xml.setEvalRate(eval_rate)
 
     if 'v' in attrs:
         xml.appendAttr('velocity', 1)

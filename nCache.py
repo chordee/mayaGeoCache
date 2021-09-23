@@ -67,6 +67,7 @@ class NCacheXML(object):
                  fps=24,
                  startFrame=1,
                  endFrame=200,
+                 evalRate=1.0,
                  channels=None,
                  cacheFormat='mcc',
                  cacheType='OneFilePerFrame'):
@@ -77,6 +78,7 @@ class NCacheXML(object):
         self._xml = xml
         self._startFrame = int(startFrame)
         self._endFrame = int(endFrame)
+        self._evalRate = float(evalRate)
         self._channels = channels
         self._format = cacheFormat
         self._type = cacheType
@@ -156,6 +158,12 @@ class NCacheXML(object):
     def getEndFrame(self):
         return self._endFrame
 
+    def setEvalRate(self, rate):
+        self._evalRate = float(rate)
+
+    def getEvalRate(self):
+        return self._evalRate
+
     def __genChannelTypes(self):
         if not self._channelTypes:
             self._channelTypes = ['FloatVectorArray'] * len(self._channels)
@@ -197,7 +205,7 @@ class NCacheXML(object):
                 'ChannelType="%s"' % self._channelTypes[i],
                 'ChannelInterpretation="%s"' % self._channelInters[i],
                 'SamplingType="Regular"',
-                'SamplingRate="%d"' % int(timePerFrame),
+                'SamplingRate="%d"' % int(timePerFrame * self._evalRate),
                 'StartTime="%d"' % int(self._startFrame * timePerFrame),
                 'EndTime="%d"' % int(self._endFrame * timePerFrame),
                 '/>\n'
