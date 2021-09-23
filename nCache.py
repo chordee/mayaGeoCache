@@ -10,6 +10,10 @@ import numpy as np
 '''
 
 
+# Please google: How Maya counts time
+TICKS_PRE_SECOND = 6000
+
+
 def removeNamespace(name, ns=''):
     temp_name = name.split('|')
     fixed_name = []
@@ -86,7 +90,7 @@ class NCacheXML(object):
 
         for child in root.findall('cacheTimePerFrame'):
             timePerFrame = int(float(child.attrib['TimePerFrame']))
-            self._fps = int(6000 / timePerFrame)
+            self._fps = int(TICKS_PRE_SECOND / timePerFrame)
 
         for child in root.findall('time'):
             if len(child.attrib['Range'].split('-')) < 4:
@@ -166,7 +170,7 @@ class NCacheXML(object):
 
     def _genXMLString(self):
 
-        timePerFrame = int(6000 / self._fps)
+        timePerFrame = int(TICKS_PRE_SECOND / self._fps)
         cacheType = self._type
 
         self._xml_str = '''<?xml version="1.0"?>
@@ -230,7 +234,7 @@ class NCacheXML(object):
         self._format = fmt
 
     def getStep(self):
-        return 6000 / self._fps
+        return TICKS_PRE_SECOND / self._fps
 
     def getType(self):
         return self._type
