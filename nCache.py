@@ -74,6 +74,9 @@ class NCacheXML(object):
         """"""
         channels = channels or ['Shape', ]
 
+        if not xml.lower().endswith(".xml"):
+            xml += ".xml"
+
         self._fps = int(fps)
         self._xml = xml
         self._startFrame = int(startFrame)
@@ -133,11 +136,10 @@ class NCacheXML(object):
                     child.attrib['ChannelInterpretation'])
 
     def write(self):
+        self._genXMLString()
         with open(self._xml, 'wb') as f:
-            self._genXMLString()
-
             root = ET.fromstring(self._xml_str)
-
+            f.write(b'<?xml version="1.0"?>\n')
             f.write(ET.tostring(root))
 
     def setFps(self, fps):
@@ -181,13 +183,12 @@ class NCacheXML(object):
         timePerFrame = int(TICKS_PRE_SECOND / self._fps)
         cacheType = self._type
 
-        self._xml_str = '''<?xml version="1.0"?>
-        <Autodesk_Cache_File>
-            <cacheType Type="{cacheType}" Format="{format}"/>
-            <time Range="{startFrame}-{endFrame}"/>
-            <cacheTimePerFrame TimePerFrame="{perFrame}"/>
-            <cacheVersion Version="2.0"/>
-            <Channels>\n'''.format(
+        self._xml_str = '''<Autodesk_Cache_File>
+  <cacheType Type="{cacheType}" Format="{format}"/>
+  <time Range="{startFrame}-{endFrame}"/>
+  <cacheTimePerFrame TimePerFrame="{perFrame}"/>
+  <cacheVersion Version="2.0"/>
+  <Channels>\n'''.format(
             cacheType=cacheType,
             format=self._format,
             startFrame=int(self._startFrame * timePerFrame),
@@ -199,7 +200,8 @@ class NCacheXML(object):
         self.__genChannelInters()
 
         for i, ch in enumerate(self._channels):
-            _ch_str = ' '.join([
+            _ch_str = '    '  # indention
+            _ch_str += ' '.join([
                 '<channel%d' % i,
                 'ChannelName="%s"' % self._channels[i],
                 'ChannelType="%s"' % self._channelTypes[i],
@@ -212,7 +214,7 @@ class NCacheXML(object):
             ])
             self._xml_str += _ch_str
 
-        self._xml_str += '</Channels>\n</Autodesk_Cache_File>'
+        self._xml_str += '  </Channels>\n</Autodesk_Cache_File>'
 
     def getXMLString(self):
         self._genXMLString()
@@ -764,7 +766,7 @@ class NPCacheXML(NCacheXML):
         self._channels = []
         self._channelInters = attrs
         for attr in self._channelInters:
-            self._channels += ['_'.join([self.__name, attr])]
+            self._channels.append('_'.join([self.__name, attr]))
 
     def getAttrs(self):
         return self._channelInters
