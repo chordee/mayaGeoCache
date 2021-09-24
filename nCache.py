@@ -13,9 +13,6 @@ import numpy as np
 # Please google: How Maya counts time
 TICKS_PRE_SECOND = 6000
 
-# TimePerFrame (tick): Ticks pre frame
-# SamplingRate (tick): Sub-frame length
-
 
 def removeNamespace(name, ns=''):
     temp_name = name.split('|')
@@ -70,7 +67,7 @@ class NCacheXML(object):
                  fps=24,
                  startFrame=1,
                  endFrame=200,
-                 evalStep=1.0,
+                 evalStep=1.0,  # evaluate every x frame
                  channels=None,
                  cacheFormat='mcc',
                  cacheType='OneFilePerFrame'):
@@ -159,7 +156,7 @@ class NCacheXML(object):
         return self._endFrame
 
     def setSamplingRate(self, step):
-        self._samplingRate = int(float(step) * self.getTicksPerFrame())
+        self._samplingRate = int(float(step) * self.getTimePerFrame())
 
     def getSamplingRate(self):
         return self._samplingRate
@@ -178,7 +175,7 @@ class NCacheXML(object):
 
     def _genXMLString(self):
 
-        ticksPerFrame = self.getTicksPerFrame()
+        timePerFrame = self.getTimePerFrame()
         cacheType = self._type
 
         self._xml_str = '''<Autodesk_Cache_File>
@@ -189,9 +186,9 @@ class NCacheXML(object):
   <Channels>\n'''.format(
             cacheType=cacheType,
             format=self._format,
-            startFrame=int(self._startFrame * ticksPerFrame),
-            endFrame=int(self._endFrame * ticksPerFrame),
-            perFrame=int(ticksPerFrame),
+            startFrame=int(self._startFrame * timePerFrame),
+            endFrame=int(self._endFrame * timePerFrame),
+            perFrame=int(timePerFrame),
         )
 
         self.__genChannelTypes()
@@ -206,8 +203,8 @@ class NCacheXML(object):
                 'ChannelInterpretation="%s"' % self._channelInters[i],
                 'SamplingType="Regular"',
                 'SamplingRate="%d"' % int(self._samplingRate),
-                'StartTime="%d"' % int(self._startFrame * ticksPerFrame),
-                'EndTime="%d"' % int(self._endFrame * ticksPerFrame),
+                'StartTime="%d"' % int(self._startFrame * timePerFrame),
+                'EndTime="%d"' % int(self._endFrame * timePerFrame),
                 '/>\n'
             ])
             self._xml_str += _ch_str
@@ -241,7 +238,7 @@ class NCacheXML(object):
     def setFormat(self, fmt):
         self._format = fmt
 
-    def getTicksPerFrame(self):
+    def getTimePerFrame(self):
         return int(TICKS_PRE_SECOND / self._fps)
 
     def getType(self):
@@ -305,8 +302,8 @@ class NCacheMC(object):
         self._channelTypes = xml.getChannelTypes()
         self._xml = xml
 
-        self._ticks = 0
-        self._ticks_pre_frame = xml.getTicksPerFrame()
+        self._time = 0
+        self._time_pre_frame = xml.getTimePerFrame()
         self._sampling_rate = xml.getSamplingRate()
         self.setFrame(frame)
 
@@ -660,14 +657,14 @@ class NCacheMC(object):
         self.__genPath()
         return self._path
 
-    def getTicks(self):
-        return int(self._ticks)
+    def getTime(self):
+        return int(self._time)
 
     def setFrame(self, frame):
-        self._ticks = int(frame * self._ticks_pre_frame)
+        self._time = int(frame * self._time_pre_frame)
 
     def getFrame(self):
-        return self._ticks / self._ticks_pre_frame
+        return self._time / self._time_pre_frame
 
     def setXMLPath(self, xml_path):
         self._xmlpath = xml_path
@@ -707,10 +704,10 @@ class NCacheMC(object):
                 808333568,
                 b'STIM',
                 4,
-                self.getTicks(),
+                self.getTime(),
                 b'ETIM',
                 4,
-                self.getTicks()
+                self.getTime()
             )
 
         elif self._format == 'mcx':
@@ -726,12 +723,12 @@ class NCacheMC(object):
                 b'STIM',
                 0,
                 4,
-                self.getTicks(),
+                self.getTime(),
                 0,
                 b'ETIM',
                 0,
                 4,
-                self.getTicks(),
+                self.getTime(),
                 0
             )
 
@@ -742,9 +739,9 @@ class NCacheMC(object):
         ext = {"mcc": ".mc", "mcx": ".mcx"}.get(self._format, "")
 
         time_str = 'Frame%d' % int(self.getFrame())
-        ticks = self._ticks % self._ticks_pre_frame
-        if ticks:
-            time_str += 'Tick%d' % ticks
+        tick = self._time % self._time_pre_frame
+        if tick:
+            time_str += 'Tick%d' % tick
 
         self._path = self._xmlpath.replace('.xml', time_str + ext)
 
@@ -882,7 +879,7 @@ def houdini_export():
 
     xml.write()
     sampling_rate = xml.getSamplingRate()
-    ticks_per_frame = xml.getTicksPerFrame()
+    time_per_frame = xml.getTimePerFrame()
 
     # Render
     #
@@ -893,8 +890,8 @@ def houdini_export():
 
         threads = []
         for frame_whole in range(start_frame, end_frame + 1):
-            for tick in range(0, ticks_per_frame, sampling_rate):
-                frame = frame_whole + (tick / ticks_per_frame)
+            for tick in range(0, time_per_frame, sampling_rate):
+                frame = frame_whole + (tick / time_per_frame)
                 if frame > end_frame:
                     break
 
