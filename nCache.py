@@ -13,6 +13,9 @@ import numpy as np
 # Please google: How Maya counts time
 TICKS_PRE_SECOND = 6000
 
+# TimePerFrame (tick): Ticks pre frame
+# SamplingRate (tick): Sub-frame length
+
 
 def removeNamespace(name, ns=''):
     temp_name = name.split('|')
@@ -67,26 +70,26 @@ class NCacheXML(object):
                  fps=24,
                  startFrame=1,
                  endFrame=200,
-                 evalRate=1.0,
+                 evalStep=1.0,
                  channels=None,
                  cacheFormat='mcc',
                  cacheType='OneFilePerFrame'):
         """"""
         channels = channels or ['Shape', ]
 
-        if not xml.lower().endswith(".xml"):
-            xml += ".xml"
-
         self._fps = int(fps)
-        self._xml = xml
+        self._xml = None
         self._startFrame = int(startFrame)
         self._endFrame = int(endFrame)
-        self._evalRate = float(evalRate)
         self._channels = channels
         self._format = cacheFormat
         self._type = cacheType
+        self._samplingRate = None
         self._channelTypes = []
         self._channelInters = []
+
+        self.setXMLPath(xml)
+        self.setSamplingRate(evalStep)
 
     def read(self):
         tree = ET.ElementTree(file=self._xml)
@@ -119,21 +122,16 @@ class NCacheXML(object):
             self._type = child.attrib['Type']
 
         self._channels = []
+        self._channelTypes = []
+        self._channelInters = []
 
         for em in root.findall('Channels'):
             for child in em:
                 self._channels.append(child.attrib['ChannelName'])
-
-        self._channelTypes = []
-
-        for em in root.findall('Channels'):
-            for child in em:
                 self._channelTypes.append(child.attrib['ChannelType'])
-
-        for em in root.findall('Channels'):
-            for child in em:
-                self._channelInters.append(
-                    child.attrib['ChannelInterpretation'])
+                self._channelInters.append(child.attrib['ChannelInterpretation'])
+                # Use last channel's samplingRate
+                self._samplingRate = int(child.attrib['SamplingRate'])
 
     def write(self):
         self._genXMLString()
@@ -160,11 +158,11 @@ class NCacheXML(object):
     def getEndFrame(self):
         return self._endFrame
 
-    def setEvalRate(self, rate):
-        self._evalRate = float(rate)
+    def setSamplingRate(self, step):
+        self._samplingRate = int(float(step) * self.getTicksPerFrame())
 
-    def getEvalRate(self):
-        return self._evalRate
+    def getSamplingRate(self):
+        return self._samplingRate
 
     def __genChannelTypes(self):
         if not self._channelTypes:
@@ -207,7 +205,7 @@ class NCacheXML(object):
                 'ChannelType="%s"' % self._channelTypes[i],
                 'ChannelInterpretation="%s"' % self._channelInters[i],
                 'SamplingType="Regular"',
-                'SamplingRate="%d"' % int(ticksPerFrame * self._evalRate),
+                'SamplingRate="%d"' % int(self._samplingRate),
                 'StartTime="%d"' % int(self._startFrame * ticksPerFrame),
                 'EndTime="%d"' % int(self._endFrame * ticksPerFrame),
                 '/>\n'
@@ -250,7 +248,12 @@ class NCacheXML(object):
         return self._type
 
     def setXMLPath(self, xml):
+        if not xml.lower().endswith(".xml"):
+            xml += ".xml"
         self._xml = xml
+
+    def getXMLPath(self):
+        return self._xml
 
     def getChannelInters(self):
         return self._channelInters
@@ -288,19 +291,25 @@ class NCacheMC(object):
         channels = channels or ['Shape', ]
         pointsArray = pointsArray or [[[0, 0, 0], ], ]
 
+        xml = NCacheXML(xml_path)
+        xml_path = xml.getXMLPath()
+        if os.path.exists(xml_path):
+            xml.read()
+
         self.__mcc_head_unpack_string = '>4sL8sLl4sLl4sLl'
         self.__mcx_head_unpack_string = '>4sLQ8sLQ2L4sLQ2l4slQ2l'
         self._xmlpath = xml_path
-        xml = NCacheXML(self._xmlpath)
-        if os.path.exists(xml_path):
-            xml.read()
+
         self._type = xml.getType()
         self._format = xml.getFormat()
         self._channelTypes = xml.getChannelTypes()
         self._xml = xml
 
+        self._ticks = 0
         self._ticks_pre_frame = xml.getTicksPerFrame()
-        self._frame = frame
+        self._sampling_rate = xml.getSamplingRate()
+        self.setFrame(frame)
+
         self.__genPath()
         self.__genHead()
         self._channels = channels
@@ -312,17 +321,26 @@ class NCacheMC(object):
             self._p_amount += np.array(i).size / 3
 
     def read(self):
-        self.__genPath()
-        file = open(self._path, 'rb')
-        xml = NCacheXML(self._xmlpath)
+        if not self._xmlpath or not os.path.isfile(self._xmlpath):
+            raise Exception("XML file not exists: %s" % self._xmlpath)
 
-        if os.path.exists(self._xmlpath):
-            xml.read()
+        xml = NCacheXML(self._xmlpath)
+        xml.read()
 
         self._xml = xml
         self._format = xml.getFormat()
         self._channels = xml.getChannels()
         self._channelTypes = xml.getChannelTypes()
+        self._sampling_rate = xml.getSamplingRate()
+
+        self.__genPath()
+        if self._path is None:
+            raise Exception("No valid cache file found in: %s"
+                            % os.path.dirname(self._xmlpath))
+        if not os.path.isfile(self._path):
+            raise Exception("Cache file not exists: %s" % self._path)
+
+        file = open(self._path, 'rb')
 
         if self._format == 'mcc':
             self._head = file.read(48)
@@ -642,14 +660,14 @@ class NCacheMC(object):
         self.__genPath()
         return self._path
 
-    def getTime(self):
-        return int(self._frame * self._ticks_pre_frame)
+    def getTicks(self):
+        return int(self._ticks)
 
     def setFrame(self, frame):
-        self._frame = int(frame)
+        self._ticks = int(frame * self._ticks_pre_frame)
 
     def getFrame(self):
-        return self._frame
+        return self._ticks / self._ticks_pre_frame
 
     def setXMLPath(self, xml_path):
         self._xmlpath = xml_path
@@ -689,10 +707,10 @@ class NCacheMC(object):
                 808333568,
                 b'STIM',
                 4,
-                self.getTime(),
+                self.getTicks(),
                 b'ETIM',
                 4,
-                self.getTime()
+                self.getTicks()
             )
 
         elif self._format == 'mcx':
@@ -708,12 +726,12 @@ class NCacheMC(object):
                 b'STIM',
                 0,
                 4,
-                self.getTime(),
+                self.getTicks(),
                 0,
                 b'ETIM',
                 0,
                 4,
-                self.getTime(),
+                self.getTicks(),
                 0
             )
 
@@ -721,14 +739,14 @@ class NCacheMC(object):
             return
 
     def __genPath(self):
-        if self._format == 'mcc':
-            self._path = self._xmlpath.replace(
-                '.xml', 'Frame' + str(self._frame) + '.mc')
-        elif self._format == 'mcx':
-            self._path = self._xmlpath.replace(
-                '.xml', 'Frame' + str(self._frame) + '.mcx')
-        else:
-            return
+        ext = {"mcc": ".mc", "mcx": ".mcx"}.get(self._format, "")
+
+        time_str = 'Frame%d' % int(self.getFrame())
+        ticks = self._ticks % self._ticks_pre_frame
+        if ticks:
+            time_str += 'Tick%d' % ticks
+
+        self._path = self._xmlpath.replace('.xml', time_str + ext)
 
 
 class NPCacheXML(NCacheXML):
@@ -821,6 +839,152 @@ class NPCacheMC(NCacheMC):
 
     def getEndFrame(self):
         return self._xml.getEndFrame()
+
+
+def houdini_export():
+    import hou  # noqa
+    import threading
+
+    node = hou.pwd()
+    alt_node = hou.pwd().path() + '/WRITE_OUT'
+    geo = hou.node(alt_node).geometry()
+    fps = hou.fps()
+
+    start_frame = node.parm('start_frame').eval()
+    end_frame = node.parm('end_frame').eval()
+    eval_rate = node.parm('eval_rate').eval()
+    pname = node.parm('particle_name').eval()
+
+    attrs = [x.name() for x in geo.pointAttribs()]
+    xml_path = node.parm('xml').eval()
+
+    xml = NPCacheXML(xml_path)
+    xml.setName(pname + 'Shape')
+    xml.setFps(fps)
+    xml.setStartFrame(start_frame)
+    xml.setEndFrame(end_frame)
+    xml.setSamplingRate(eval_rate)
+
+    if 'v' in attrs:
+        xml.appendAttr('velocity', 1)
+    if 'age' in attrs:
+        xml.appendAttr('age', 0)
+    if 'life' in attrs:
+        xml.appendAttr('lifespanPP', 0)
+    if 'pscale' in attrs:
+        xml.appendAttr('radiusPP', 0)
+    if 'Cd' in attrs:
+        xml.appendAttr('rgbPP', 1)
+    if 'Alpha' in attrs:
+        xml.appendAttr('opacityPP', 0)
+    if 'rotation' in attrs:
+        xml.appendAttr('rotationPP', 1)
+
+    xml.write()
+    sampling_rate = xml.getSamplingRate()
+    ticks_per_frame = xml.getTicksPerFrame()
+
+    # Render
+    #
+    visual_warning_once = True
+    #
+    with hou.InterruptableOperation(
+            "Cache", "Caching", open_interrupt_dialog=True) as operation:
+
+        threads = []
+        for frame_whole in range(start_frame, end_frame + 1):
+            for tick in range(0, ticks_per_frame, sampling_rate):
+                frame = frame_whole + (tick / ticks_per_frame)
+                if frame > end_frame:
+                    break
+
+                hou.setFrame(frame)
+
+                check_id_attr = geo.findPointAttrib('id')
+                if check_id_attr is None and visual_warning_once:
+                    hou.ui.displayMessage(
+                        'Point id attribute not found at frame %f' % frame
+                    )
+                    visual_warning_once = False
+                    break
+
+                data_array = _hou_geo_data(geo, attrs)
+
+                mc = NPCacheMC(xml_path)
+                mc.setPointArray(data_array)
+                mc.setFrame(frame)
+
+                th = threading.Thread(target=mc.write)
+                th.start()
+                threads.append(th)
+
+                _pro = float(frame - start_frame) / (end_frame - start_frame)
+                _msg = "Exporting Frame %d from %d to %d" % (frame, start_frame, end_frame)
+                operation.updateLongProgress(_pro, _msg)
+
+        for th in threads:
+            th.join()
+
+
+def _hou_geo_data(geo, attrs):
+    import hou  # noqa
+
+    data_array = []
+
+    # helpers
+    def _int_64(attr):
+        return geo.pointIntAttribValuesAsString(
+            attr, int_type=hou.numericData.Int64
+        )
+
+    def _float_32(attr):
+        return geo.pointFloatAttribValuesAsString(
+            attr
+        )
+
+    def _float_64(attr):
+        return geo.pointFloatAttribValuesAsString(
+            attr, float_type=hou.numericData.Float64
+        )
+
+    id_array = np.fromstring(_int_64('id'), dtype=np.int64)
+    data_array.append(id_array)
+
+    count_array = np.array([len(geo.points())])
+    data_array.append(count_array)
+
+    pos_array = np.fromstring(_float_32('P'), dtype=np.float32).reshape(-1, 3)
+    data_array.append(pos_array)
+
+    if 'v' in attrs:
+        vel_array = np.fromstring(_float_32('v'), dtype=np.float32).reshape(-1, 3)
+        data_array.append(vel_array)
+
+    if 'age' in attrs:
+        age_array = np.fromstring(_float_64('age'), dtype=np.float64)
+        data_array.append(age_array)
+
+    if 'life' in attrs:
+        life_array = np.fromstring(_float_64('life'), dtype=np.float64)
+        data_array.append(life_array)
+
+    if 'pscale' in attrs:
+        pscale_array = np.fromstring(_float_64('pscale'), dtype=np.float64)
+        data_array.append(pscale_array)
+
+    if 'Cd' in attrs:
+        cd_array = np.fromstring(_float_32('Cd'), dtype=np.float32).reshape(-1, 3)
+        data_array.append(cd_array)
+
+    if 'Alpha' in attrs:
+        alpha_array = np.fromstring(_float_64('Alpha'), dtype=np.float64)
+        data_array.append(alpha_array)
+
+    if 'rotation' in attrs:
+        rotation_array = np.fromstring(_float_32('rotation'), dtype=np.float32).reshape(-1, 3)
+        data_array.append(rotation_array)
+
+    return data_array
 
 
 """
