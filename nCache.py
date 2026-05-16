@@ -5,13 +5,14 @@ import xml.etree.ElementTree as ET
 
 import numpy as np
 
-'''
-['DoubleArray', 'FloatVectorArray', 'DoubleVectorArray']
-'''
 
-
-# Please google: How Maya counts time
+# Maya stores cache time in "ticks"; one tick = 1/6000 second. Frame ticks
+# are computed as frame_number * (TICKS_PRE_SECOND / fps).
 TICKS_PRE_SECOND = 6000
+
+# Cache version string "0.1\0" packed as a big-endian uint32 (0x302E3100).
+# Written into the header's CACHVRSN chunk.
+_CACHE_VERSION = 0x302E3100
 
 
 def removeNamespace(name, ns=''):
@@ -71,7 +72,6 @@ class NCacheXML(object):
                  channels=None,
                  cacheFormat='mcc',
                  cacheType='OneFilePerFrame'):
-        """"""
         channels = channels or ['Shape', ]
 
         self._fps = int(fps)
@@ -278,13 +278,17 @@ class NCacheXML(object):
 
 
 class NCacheMC(object):
-    """"""
+    """One-file-per-frame Maya cache data file (.mc / .mcx).
+
+    Writes always emit the OFPF binary layout (header + a single block, no
+    per-block TIME chunk); the current frame's tick value is encoded in the
+    header's STIM/ETIM fields.
+    """
     def __init__(self,
                  xml_path,
                  frame=1,
                  channels=None,
                  pointsArray=None):
-        """"""
         channels = channels or ['Shape', ]
         pointsArray = pointsArray or [[[0, 0, 0], ], ]
 
@@ -293,7 +297,10 @@ class NCacheMC(object):
         if os.path.exists(xml_path):
             xml.read()
 
+        # mcc header: 48 bytes, FOR4 container with 32-bit chunk lengths.
+        #   'FOR4' u32_len 'CACHVRSN' 4 version 'STIM' 4 start 'ETIM' 4 end
         self.__mcc_head_unpack_string = '>4sL8sLl4sLl4sLl'
+        # mcx header: 92 bytes, FOR8 container with 64-bit chunk lengths.
         self.__mcx_head_unpack_string = '>4sLQ8sLQ2L4sLQ2l4slQ2l'
         self._xmlpath = xml_path
 
@@ -682,6 +689,10 @@ class NCacheMC(object):
         return self._ele_amounts
 
     def __genNameLength(self, ch):
+        # On-disk channel name = name bytes + NULL terminator, padded with
+        # extra NULL bytes so the total length is a multiple of 4 (mcc) or
+        # 8 (mcx). When len(ch) is already aligned, a full unit of padding
+        # is still appended.
         _unit = 4 if self._format == 'mcc' else 8
         _ch_len = len(ch)
 
@@ -699,7 +710,7 @@ class NCacheMC(object):
                 40,
                 b'CACHVRSN',
                 4,
-                808333568,
+                _CACHE_VERSION,
                 b'STIM',
                 4,
                 self.getTime(),
@@ -716,7 +727,7 @@ class NCacheMC(object):
                 b'CACHVRSN',
                 0,
                 4,
-                808333568,
+                _CACHE_VERSION,
                 0,
                 b'STIM',
                 0,
@@ -837,6 +848,13 @@ class NPCacheMC(NCacheMC):
 
 
 def houdini_export():
+    """Export a Houdini point geometry sequence as an nParticle cache.
+
+    Reads parameters from the wrapping HDA (start_frame, end_frame, eval_rate,
+    particle_name, xml). The Houdini attribute-to-Maya-attribute mapping below
+    MUST stay in sync with `_hou_geo_data`, which appends arrays to the cache
+    in the same order.
+    """
     import hou  # noqa
     import threading
 
@@ -879,10 +897,7 @@ def houdini_export():
     sampling_rate = xml.getSamplingRate()
     time_per_frame = xml.getTimePerFrame()
 
-    # Render
-    #
     visual_warning_once = True
-    #
     with hou.InterruptableOperation(
             "Cache", "Caching", open_interrupt_dialog=True) as operation:
 
@@ -922,11 +937,16 @@ def houdini_export():
 
 
 def _hou_geo_data(geo, attrs):
+    """Collect Houdini point attributes as a list of numpy arrays.
+
+    The append order here MUST match the channel order produced by
+    `houdini_export` via `NPCacheXML.appendAttr`; channel index alignment
+    between XML and binary is what lets Maya map data back to attributes.
+    """
     import hou  # noqa
 
     data_array = []
 
-    # helpers
     def _int_64(attr):
         return geo.pointIntAttribValuesAsString(
             attr, int_type=hou.numericData.Int64
@@ -980,39 +1000,3 @@ def _hou_geo_data(geo, attrs):
         data_array.append(rotation_array)
 
     return data_array
-
-
-"""
-if __name__ == '__main__':
-    path = ['D:/temp/ncache/p32.xml', 'D:/temp/ncache/p32d.xml', 'D:/temp/ncache/p64.xml', 'D:/temp/ncache/p64d.xml']
-    #path = ['D:/temp/ncache1/nParticleShape1.xml']
-    for xml in path:
-        print xml
-        x = NPCacheXML(xml)
-
-    #xml_path = 'D:/temp/ncache_p/np.xml'
-    xml_path = 'D:/temp/ncache4/nParticleShape1.xml'
-    #xml_path = path[2]
-    xml = NPCacheXML(xml_path)
-    xml.setStartFrame(1)
-    xml.setEndFrame(48)
-    xml.read()
-
-    print xml.getChannelTypes()
-    #print xml.getChannelTypes()
-
-    #xml.write()
-
-
-    mc = NPCacheMC(xml_path)
-    for i in range(1,5):
- 
-        mc.setFrame(i)
-        if mc.read():
-            for attr in mc.getAttrs():
-                if attr == 'count':
-                    print attr
-                    print mc.getAttrValues(attr)
-        #print mc.getAttrValues('radiusPP')
-        #mc.write()
-"""
