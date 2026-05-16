@@ -363,12 +363,11 @@ class NCacheMC(object):
                     return None
 
                 name_length = int(math.ceil(float(temp[1]) / 4) * 4)
-                # temp = struct.unpack(
-                #     '>' + str(name_length) + 's', file.read(name_length))
+                file.read(name_length)
                 temp = struct.unpack('>4s2L4sl', file.read(20))
                 step += 8 + name_length + 20 + temp[4]
 
-                if temp[3] == 'FVCA':
+                if temp[3] == b'FVCA':
                     self._ele_amounts.append(temp[4] / 12)
                     pos = struct.unpack(
                         '>' + str(temp[2] * 3) + 'f',
@@ -377,7 +376,7 @@ class NCacheMC(object):
                     self._pointsArray.append(
                         np.array(pos, dtype=np.float32).reshape(-1, 3))
 
-                elif temp[3] == 'DVCA':
+                elif temp[3] == b'DVCA':
                     self._ele_amounts.append(temp[4] / 24)
                     pos = struct.unpack(
                         '>' + str(temp[2] * 3) + 'd',
@@ -386,7 +385,7 @@ class NCacheMC(object):
                     self._pointsArray.append(
                         np.array(pos, dtype=np.float64).reshape(-1, 3))
 
-                elif temp[3] == 'DBLA':
+                elif temp[3] == b'DBLA':
                     self._ele_amounts.append(temp[4] / 8)
                     pos = struct.unpack(
                         '>' + str(temp[2]) + 'd',
@@ -408,13 +407,12 @@ class NCacheMC(object):
                     return None
 
                 name_length = int(math.ceil(float(temp[2]) / 8) * 8)
-                # temp = struct.unpack(
-                #     '>' + str(name_length) + 's', file.read(name_length))
+                file.read(name_length)
                 temp = struct.unpack('>4sLQ2L4sLQ', file.read(40))
                 step_push = int(math.ceil(float(temp[7]) / 8) * 8)
                 step += 16 + name_length + 40 + step_push
 
-                if temp[5] == 'FVCA':
+                if temp[5] == b'FVCA':
                     self._ele_amounts.append(temp[7] / 12)
                     pos = struct.unpack(
                         '>' + str(temp[3] * 3) + 'f',
@@ -423,7 +421,7 @@ class NCacheMC(object):
                     self._pointsArray.append(
                         np.array(pos, dtype=np.float32).reshape(-1, 3))
 
-                elif temp[5] == 'DVCA':
+                elif temp[5] == b'DVCA':
                     self._ele_amounts.append(temp[7] / 24)
                     pos = struct.unpack(
                         '>' + str(temp[3] * 3) + 'd',
@@ -432,7 +430,7 @@ class NCacheMC(object):
                     self._pointsArray.append(
                         np.array(pos, dtype=np.float64).reshape(-1, 3))
 
-                elif temp[5] == 'DBLA':
+                elif temp[5] == b'DBLA':
                     self._ele_amounts.append(temp[7] / 8)
                     pos = struct.unpack(
                         '>' + str(temp[3]) + 'd',
@@ -492,7 +490,7 @@ class NCacheMC(object):
                     elif self._channelTypes[n] == 'DoubleVectorArray':
                         amount_size += len(i) * 2 * 3
                     elif self._channelTypes[n] == 'DoubleArray':
-                        amount_size += len(i) * 3
+                        amount_size += len(i) * 2
 
                 block = struct.pack(
                     '>4sLQ4s',
@@ -611,7 +609,7 @@ class NCacheMC(object):
                             4,
                             p_amount,
                             0,
-                            b'DVCA',
+                            b'DBLA',
                             0,
                             p_amount * 8
                         )
@@ -619,11 +617,11 @@ class NCacheMC(object):
                 f.write(data)
 
                 if self._channelTypes[i] == 'FloatVectorArray':
-                    f.write(pointsArray.reshape(-1).astype('>f4').tostring())
+                    f.write(pointsArray.reshape(-1).astype('>f4').tobytes())
                 elif self._channelTypes[i] == 'DoubleVectorArray':
-                    f.write(pointsArray.reshape(-1).astype('>f8').tostring())
+                    f.write(pointsArray.reshape(-1).astype('>f8').tobytes())
                 elif self._channelTypes[i] == 'DoubleArray':
-                    f.write(pointsArray.reshape(-1).astype('>f8').tostring())
+                    f.write(pointsArray.reshape(-1).astype('>f8').tobytes())
 
                 if self._format == 'mcx':
                     if self._channelTypes[i] == 'FloatVectorArray':
@@ -944,41 +942,41 @@ def _hou_geo_data(geo, attrs):
             attr, float_type=hou.numericData.Float64
         )
 
-    id_array = np.fromstring(_int_64('id'), dtype=np.int64)
+    id_array = np.frombuffer(_int_64('id'), dtype=np.int64)
     data_array.append(id_array)
 
     count_array = np.array([len(geo.points())])
     data_array.append(count_array)
 
-    pos_array = np.fromstring(_float_32('P'), dtype=np.float32).reshape(-1, 3)
+    pos_array = np.frombuffer(_float_32('P'), dtype=np.float32).reshape(-1, 3)
     data_array.append(pos_array)
 
     if 'v' in attrs:
-        vel_array = np.fromstring(_float_32('v'), dtype=np.float32).reshape(-1, 3)
+        vel_array = np.frombuffer(_float_32('v'), dtype=np.float32).reshape(-1, 3)
         data_array.append(vel_array)
 
     if 'age' in attrs:
-        age_array = np.fromstring(_float_64('age'), dtype=np.float64)
+        age_array = np.frombuffer(_float_64('age'), dtype=np.float64)
         data_array.append(age_array)
 
     if 'life' in attrs:
-        life_array = np.fromstring(_float_64('life'), dtype=np.float64)
+        life_array = np.frombuffer(_float_64('life'), dtype=np.float64)
         data_array.append(life_array)
 
     if 'pscale' in attrs:
-        pscale_array = np.fromstring(_float_64('pscale'), dtype=np.float64)
+        pscale_array = np.frombuffer(_float_64('pscale'), dtype=np.float64)
         data_array.append(pscale_array)
 
     if 'Cd' in attrs:
-        cd_array = np.fromstring(_float_32('Cd'), dtype=np.float32).reshape(-1, 3)
+        cd_array = np.frombuffer(_float_32('Cd'), dtype=np.float32).reshape(-1, 3)
         data_array.append(cd_array)
 
     if 'Alpha' in attrs:
-        alpha_array = np.fromstring(_float_64('Alpha'), dtype=np.float64)
+        alpha_array = np.frombuffer(_float_64('Alpha'), dtype=np.float64)
         data_array.append(alpha_array)
 
     if 'rotation' in attrs:
-        rotation_array = np.fromstring(_float_32('rotation'), dtype=np.float32).reshape(-1, 3)
+        rotation_array = np.frombuffer(_float_32('rotation'), dtype=np.float32).reshape(-1, 3)
         data_array.append(rotation_array)
 
     return data_array
