@@ -859,8 +859,7 @@ def houdini_export():
     import threading
 
     node = hou.pwd()
-    alt_node = hou.pwd().path() + '/WRITE_OUT'
-    geo = hou.node(alt_node).geometry()
+    sop = hou.node(hou.pwd().path() + '/WRITE_OUT')
     fps = hou.fps()
 
     start_frame = node.parm('start_frame').eval()
@@ -868,7 +867,7 @@ def houdini_export():
     eval_rate = node.parm('eval_rate').eval()
     pname = node.parm('particle_name').eval()
 
-    attrs = [x.name() for x in geo.pointAttribs()]
+    attrs = [x.name() for x in sop.geometryAtFrame(start_frame).pointAttribs()]
     xml_path = node.parm('xml').eval()
 
     xml = NPCacheXML(xml_path)
@@ -908,7 +907,7 @@ def houdini_export():
                 if frame > end_frame:
                     break
 
-                hou.setFrame(frame)
+                geo = sop.geometryAtFrame(frame)
 
                 check_id_attr = geo.findPointAttrib('id')
                 if check_id_attr is None and visual_warning_once:

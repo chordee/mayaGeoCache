@@ -52,6 +52,16 @@ silently ignores the cache.
 2. Remove the `Shape` suffix — the remainder is your `particle_name`.
 3. Set **Particle Name** to that value before exporting.
 
+### Source Geometry Requirements
+
+The HDA reads each frame's geometry via `geometryAtFrame()` — it does **not**
+step through the global frame counter. This means a live DOP simulation
+connected directly to the input will not cook correctly (the simulation
+cannot accumulate state by jumping frames).
+
+**Always bake your particle simulation to a geometry cache (e.g. a File Cache
+SOP or bgeo sequence) before connecting it to this HDA.**
+
 ### Attaching in Maya
 
 Use **FX > nCache > Attach Existing Cache** and select the `.xml` file.
