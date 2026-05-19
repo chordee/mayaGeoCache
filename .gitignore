@@ -142,10 +142,6 @@ dmypy.json
 # HDA backups
 HDAs/backup/
 
-# Houdini-generated HDA metadata (timestamps, version info)
-HDAs/**/Contents.createtimes
-HDAs/**/Contents.houdini_versions
-HDAs/**/Contents.modtimes
 
 # Examples
 examples/
