@@ -115,8 +115,9 @@ to your Maya scene.
 
 ## Houdini export
 
-`houdini_export()` is the entry point invoked from the HDA via
-`hda_script.py`. It reads the HDA parameters (`start_frame`, `end_frame`,
+`houdini_export()` is the entry point invoked from the HDA's PythonModule,
+which loads `nCache.py` at runtime via `importlib.util`. It reads the HDA
+parameters (`start_frame`, `end_frame`,
 `eval_rate`, `particle_name`, `xml`), inspects the point attributes on the
 `WRITE_OUT` SOP, and writes one `.mc` per (frame, sub-frame) pair. The
 Houdini attribute names are mapped to the conventional Maya nParticle
