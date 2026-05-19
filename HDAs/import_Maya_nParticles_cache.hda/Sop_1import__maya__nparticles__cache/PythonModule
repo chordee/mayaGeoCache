@@ -1,0 +1,58 @@
+import importlib.util
+import os
+import hou
+import numpy as np
+
+
+def _load_module(node):
+    path = node.parm('python_module_path').eval()
+    if not path or not os.path.isfile(path):
+        raise hou.NodeError("Python Module Path is not set or file not found: %s" % path)
+    spec = importlib.util.spec_from_file_location('nCache', path)
+    if spec is None or spec.loader is None:
+        raise hou.NodeError("Failed to create module spec from: %s" % path)
+    nc = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(nc)
+    return nc
+
+
+def load(node, geo, frame):
+    nc = _load_module(node)
+
+    xml_path = node.parm('nParticle_cache_file_path').eval()
+    mc = nc.NPCacheMC(xml_path)
+    mc.setFrame(frame)
+    if not mc.read():
+        return
+
+    try:
+        pos_array = mc.getAttrValues('position')
+    except (ValueError, IndexError) as e:
+        raise hou.NodeError("'position' channel not found in cache: %s" % e)
+
+    geo.createPoints(pos_array.tolist())
+    n_points = len(pos_array)
+
+    try:
+        id_array = mc.getAttrValues('id')
+        if len(id_array) == n_points:
+            geo.addAttrib(hou.attribType.Point, 'id', default_value=0)
+            geo.setPointIntAttribValuesFromString('id', id_array.astype(np.int32).tobytes())
+    except (ValueError, IndexError):
+        pass
+
+    for attr in mc.getAttrs():
+        if attr in ('id', 'position', 'count'):
+            continue
+        try:
+            values = mc.getAttrValues(attr)
+        except (ValueError, IndexError):
+            continue
+        if len(values) != n_points or len(values) == 0:
+            continue
+        if values[0].size == 1:
+            geo.addAttrib(hou.attribType.Point, attr, default_value=0.0)
+            geo.setPointFloatAttribValuesFromString(attr, values.astype(np.float32).tobytes())
+        elif values[0].size == 3:
+            geo.addAttrib(hou.attribType.Point, attr, default_value=(0.0, 0.0, 0.0))
+            geo.setPointFloatAttribValuesFromString(attr, values.astype(np.float32).tobytes())

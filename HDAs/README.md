@@ -1,6 +1,6 @@
 # HDAs
 
-Houdini Digital Assets for Maya cache export.
+Houdini Digital Assets for Maya cache import and export.
 
 ---
 
@@ -150,3 +150,41 @@ left untouched.
 
 Use **Cache > Geometry Cache > Attach Existing Cache** and select the `.xml` file.
 Do **not** use File > Import — it will not create the cache connections.
+
+---
+
+## import_Maya_nParticles_cache.hda
+
+Reads a Maya **nParticles cache** (`.xml` + `.mc` / `.mcx` files) frame by frame
+and reconstructs the particle geometry as Houdini points.
+
+> **nParticles only.**  This HDA reads caches from Maya's **nParticles** system
+> (Nucleus solver).  It is **not** compatible with caches from the legacy Maya
+> **particle** object.
+
+### Parameters
+
+| Parameter | Description |
+|-----------|-------------|
+| Python Module Path | Path to `nCache.py` |
+| nParticle Cache File | Path to the Maya cache `.xml` descriptor file |
+
+### Output Attributes
+
+The following point attributes are created when the corresponding channel is
+present in the cache:
+
+| Attribute | Type | Source channel |
+|-----------|------|----------------|
+| `P` | vector | `*_position` |
+| `id` | int | `*_id` |
+| *(others)* | float or vector | all remaining scalar / vector channels |
+
+Channels whose array length does not match the particle count at the current
+frame are silently skipped.
+
+### Per-frame Cooking
+
+The Python SOP inside this HDA cooks once per frame change.  For interactive
+playback over a slow network path, consider copying the `.mc` files to a local
+disk first.

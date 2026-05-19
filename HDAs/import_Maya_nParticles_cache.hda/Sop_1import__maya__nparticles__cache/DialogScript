@@ -1,0 +1,27 @@
+# Dialog script for inport_maya_nparticle_cache automatically generated
+
+{
+    name	import_maya_nparticles_cache
+    script	import_maya_nparticles_cache
+    label	"Import Maya nParticles Cache"
+
+    help {
+	""
+    }
+
+    parm {
+        name    "python_module_path"
+        label   "Python Module Path"
+        type    file
+        default { "" }
+        parmtag { "script_callback_language" "python" }
+    }
+    parm {
+        name    "nParticle_cache_file_path"
+        label   "nParticle Cache File"
+        type    file
+        default { "" }
+        parmtag { "filechooser_mode" "read" }
+        parmtag { "script_callback_language" "python" }
+    }
+}

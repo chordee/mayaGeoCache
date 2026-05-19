@@ -137,6 +137,8 @@ dmypy.json
 !HDAs/export_Maya_nParticles_cache.hda/**
 !HDAs/export_Maya_geoCache.hda
 !HDAs/export_Maya_geoCache.hda/**
+!HDAs/import_Maya_nParticles_cache.hda
+!HDAs/import_Maya_nParticles_cache.hda/**
 !HDAs/README.md
 
 # HDA backups

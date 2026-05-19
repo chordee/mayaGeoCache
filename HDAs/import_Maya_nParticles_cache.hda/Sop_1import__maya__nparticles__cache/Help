@@ -1,0 +1,46 @@
+= Import Maya nParticles Cache =
+
+"""Reads a Maya nParticles cache (.mc / .mcx) frame by frame and reconstructs the particle geometry as Houdini points."""
+
+== Parameters ==
+
+Python Module Path:
+    Path to `nCache.py`. This file is loaded on every cook.
+
+nParticle Cache File:
+    Path to the Maya cache XML descriptor (e.g. `particleShape.xml`).
+    The `.mc` / `.mcx` data files must be in the same directory.
+
+== Attributes ==
+
+The following point attributes are created if the corresponding channel is
+present in the cache:
+
+table>>
+    tr>>
+        th>> Attribute
+        th>> Type
+        th>> Description
+    tr>>
+        td>> `P`
+        td>> vector
+        td>> Point positions (from `position` channel).
+    tr>>
+        td>> `id`
+        td>> int
+        td>> Stable particle IDs across frames.
+    tr>>
+        td>> *(others)*
+        td>> float / vector
+        td>> All other scalar and vector channels present in the cache.
+
+Channels whose array length does not match the particle count at the current
+frame are silently skipped.
+
+== Notes ==
+
+* This node reads caches exported by Maya's nParticles (Nucleus solver),
+  not the legacy Maya Particle system.
+* One cook per frame change: the cache file is read on every frame.
+  For interactive playback over a network path, consider pre-caching
+  the frames to a local disk with a File Cache SOP.
