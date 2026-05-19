@@ -106,6 +106,13 @@ NPCacheMC(xml_path)
 - `getAttrValues(attr)` — numpy array for the named attribute.
 - `getStartFrame()` / `getEndFrame()`
 
+## HDAs
+
+The `HDAs/` directory contains Houdini Digital Assets for exporting caches
+from Houdini. See [HDAs/README.md](HDAs/README.md) for details on each HDA,
+including parameter descriptions and how to match the `particle_name` setting
+to your Maya scene.
+
 ## Houdini export
 
 `houdini_export()` is the entry point invoked from the HDA via
