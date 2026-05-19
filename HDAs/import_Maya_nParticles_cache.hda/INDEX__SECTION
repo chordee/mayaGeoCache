@@ -1,0 +1,14 @@
+Operator:     import_maya_nparticles_cache
+Label:        Import Maya nParticles Cache
+Path:         oplib:/Sop/import_maya_nparticles_cache?Sop/import_maya_nparticles_cache
+Icon:         SOP_subnet
+Table:        Sop
+License:      
+Extra:        inputcolors='0 ' outputcolors='1 "RGB 0.700195 0.700195 0.700195" ' 
+User:         
+Inputs:       0 to 0
+Subnet:       true
+Python:       false
+Empty:        false
+Modified:     Tue May 19 21:56:26 2026
+
