@@ -847,6 +847,85 @@ class NPCacheMC(NCacheMC):
         return self._xml.getEndFrame()
 
 
+def houdini_geo_export():
+    """Export a Houdini point geometry sequence as a Maya geometry cache.
+
+    Each unique value of the prim 'name' string attribute becomes one channel
+    in the Maya geo cache. The name must match the Maya shape node name for
+    Maya to load it. Topology must be static across frames.
+
+    Source geometry must be baked (e.g. File Cache SOP / bgeo sequence).
+    A live DOP simulation connected directly will not produce correct results
+    because geometryAtFrame() does not drive DOP cooking.
+    """
+    import hou  # noqa
+    import threading
+
+    node = hou.pwd()
+    sop = hou.node(hou.pwd().path() + '/WRITE_OUT')
+    fps = hou.fps()
+
+    start_frame = node.parm('start_frame').eval()
+    end_frame = node.parm('end_frame').eval()
+    eval_rate = node.parm('eval_rate').eval()
+    xml_path = node.parm('xml').eval()
+    name_attr_name = node.parm('name_attr').eval()
+
+    ref_geo = sop.geometryAtFrame(start_frame)
+    name_attr = ref_geo.findPrimAttrib(name_attr_name)
+    if name_attr is None:
+        raise RuntimeError("Prim '%s' attribute not found." % name_attr_name)
+    if name_attr.dataType() != hou.attribData.String:
+        raise RuntimeError("Prim '%s' attribute must be a string type." % name_attr_name)
+    channels = [n for n in dict.fromkeys(ref_geo.primStringAttribValues(name_attr_name)) if n]
+
+    xml = NCacheXML(xml_path, fps=fps, startFrame=start_frame,
+                    endFrame=end_frame, evalStep=eval_rate, channels=channels)
+    xml.write()
+
+    sampling_rate = xml.getSamplingRate()
+    time_per_frame = xml.getTimePerFrame()
+
+    with hou.InterruptableOperation(
+            "Cache", "Caching", open_interrupt_dialog=True) as operation:
+
+        threads = []
+        for frame_whole in range(start_frame, end_frame + 1):
+            for tick in range(0, time_per_frame, sampling_rate):
+                frame = frame_whole + (tick / time_per_frame)
+                if frame > end_frame:
+                    break
+
+                geo = sop.geometryAtFrame(frame)
+                all_pos = np.frombuffer(
+                    geo.pointFloatAttribValuesAsString('P'),
+                    dtype=np.float32
+                ).reshape(-1, 3)
+
+                point_array = []
+                for ch in channels:
+                    indices = sorted(set(
+                        pt.number()
+                        for prim in geo.prims()
+                        if prim.attribValue(name_attr_name) == ch
+                        for pt in prim.points()
+                    ))
+                    point_array.append(all_pos[indices])
+
+                mc = NCacheMC(xml_path, frame=frame, channels=channels,
+                              pointsArray=point_array)
+                th = threading.Thread(target=mc.write)
+                th.start()
+                threads.append(th)
+
+                _pro = float(frame - start_frame) / (end_frame - start_frame)
+                _msg = "Exporting Frame %d from %d to %d" % (frame, start_frame, end_frame)
+                operation.updateLongProgress(_pro, _msg)
+
+        for th in threads:
+            th.join()
+
+
 def houdini_export():
     """Export a Houdini point geometry sequence as an nParticle cache.
 

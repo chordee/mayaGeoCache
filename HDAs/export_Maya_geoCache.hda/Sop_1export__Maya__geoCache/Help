@@ -1,0 +1,87 @@
+= Export Maya geoCache =
+
+"""Exports Houdini point geometry as a Maya geometry cache (.xml + .mc files)."""
+
+== Overview ==
+
+This node bakes a Houdini geometry sequence into the Maya geometry cache
+format (one `.mc` file per frame plus an `.xml` descriptor). The resulting
+files can be loaded in Maya via __Cache > Geometry Cache > Attach Existing
+Cache__ on a mesh shape node.
+
+Each Houdini **point group** on the input geometry becomes one channel in the
+cache.  The group name must match the Maya shape node name for Maya to map the
+channel back to the correct mesh.
+
+== Point Group and Maya Node Naming ==
+
+Maya's geometry cache system identifies which mesh a channel belongs to by
+matching the channel name against the mesh **shape node name**.
+
+:tip:
+    In Maya's Outliner (with __Shapes__ visible), note the exact name of the
+    shape node you want to drive — for example `pSphereShape1`.  Create a
+    Houdini point group with that exact name on the points that correspond to
+    that mesh's vertices.
+
+Example:
+
+table>>
+    tr>>
+        th>> Houdini point group
+        th>> Maya shape node it drives
+    tr>>
+        td>> `pSphereShape1`
+        td>> `pSphereShape1`
+    tr>>
+        td>> `bodyMeshShape`
+        td>> `bodyMeshShape`
+
+The vertex count and order in the point group must exactly match the Maya
+mesh — Maya does not perform any matching by position.
+
+== Source Geometry Requirements ==
+
+This HDA reads geometry per-frame using `geometryAtFrame()` and does **not**
+step the global frame counter.  A live DOP simulation connected directly to
+the input will produce incorrect results because the DOP network requires
+sequential frame cooking to accumulate simulation state.
+
+**Always bake your geometry simulation to a cache (e.g. File Cache SOP or
+bgeo sequence) before connecting it to this HDA.**
+
+== Parameters ==
+
+Start Frame:
+    First frame to cache.
+
+End Frame:
+    Last frame to cache (inclusive).
+
+Evaluation Rate:
+    Fraction of a frame between successive cache samples.  `1` = one sample
+    per frame.  `0.5` = two samples per frame (sub-frame caching).
+
+XML:
+    Full path to the output `.xml` descriptor file, including filename and
+    extension.  The per-frame `.mc` files are written to the same directory
+    with the pattern `<base>Frame<N>.mc`.
+
+Cache:
+    Click to start the export.  A progress dialog allows cancellation.
+
+Python Module Path:
+    Path to `nCache.py`.  Required at runtime; the HDA loads the module from
+    this path each time __Cache__ is pressed.
+
+== How to Attach the Cache in Maya ==
+
+# Select the mesh object(s) whose shape names match your point group names.
+# In Maya, go to __Cache > Geometry Cache > Attach Existing Cache__.
+# Select the `.xml` file exported by this HDA.
+# Maya reads the XML, matches each channel to the corresponding shape by
+  name, and wires up the cache connections automatically.
+
+:note:
+    If you use __File > Import__ instead of __Attach Existing Cache__, Maya
+    will not set up the geometry cache connections.

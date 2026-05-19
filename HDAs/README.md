@@ -73,3 +73,38 @@ Do **not** use File > Import — it will not create the nParticle cache connecti
 
 Exports a Houdini geometry sequence as a Maya **geometry cache**
 (`.xml` + `.mc` files for deforming mesh playback).
+
+### Parameters
+
+| Parameter | Description |
+|-----------|-------------|
+| Start / End Frame | Frame range to export |
+| Evaluation Rate | Samples per frame (`1` = one per frame, `0.5` = two per frame) |
+| XML | Output path for the `.xml` descriptor file |
+| Cache | Click to run the export |
+| Python Module Path | Path to `nCache.py` |
+
+### Point Group and Maya Node Naming
+
+Each Houdini **point group** on the input geometry becomes one channel in the
+cache. The group name must exactly match the Maya **shape node name** of the
+mesh it should drive.
+
+| Houdini point group | Maya shape node it drives |
+|---------------------|---------------------------|
+| `pSphereShape1`     | `pSphereShape1`           |
+| `bodyMeshShape`     | `bodyMeshShape`           |
+
+The vertex count and order in the point group must match the Maya mesh exactly.
+
+### Source Geometry Requirements
+
+This HDA uses `geometryAtFrame()` and does **not** step the global frame
+counter. A live DOP simulation connected directly will produce incorrect
+results. **Always bake your simulation to a geometry cache first.**
+
+### Attaching in Maya
+
+Select the target mesh(es), then use **Cache > Geometry Cache > Attach
+Existing Cache** and select the `.xml` file.
+Do **not** use File > Import — it will not create the cache connections.
