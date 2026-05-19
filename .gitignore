@@ -141,3 +141,6 @@ dmypy.json
 
 # HDA backups
 HDAs/backup/
+
+# Examples
+examples/
