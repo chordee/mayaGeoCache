@@ -9,7 +9,7 @@ def _load_module(node):
     if not path or not os.path.isfile(path):
         raise hou.NodeError("Python Module Path is not set or file not found: %s" % path)
     spec = importlib.util.spec_from_file_location('nCache', path)
-    if spec is None:
+    if spec is None or spec.loader is None:
         raise hou.NodeError("Failed to create module spec from: %s" % path)
     nc = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(nc)
@@ -35,8 +35,9 @@ def load(node, geo, frame):
 
     try:
         id_array = mc.getAttrValues('id')
-        geo.addAttrib(hou.attribType.Point, 'id', default_value=0)
-        geo.setPointIntAttribValuesFromString('id', id_array.astype(np.int32).tobytes())
+        if len(id_array) == n_points:
+            geo.addAttrib(hou.attribType.Point, 'id', default_value=0)
+            geo.setPointIntAttribValuesFromString('id', id_array.astype(np.int32).tobytes())
     except (ValueError, IndexError):
         pass
 
