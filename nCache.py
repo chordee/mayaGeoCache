@@ -5,13 +5,14 @@ import xml.etree.ElementTree as ET
 
 import numpy as np
 
-'''
-['DoubleArray', 'FloatVectorArray', 'DoubleVectorArray']
-'''
 
-
-# Please google: How Maya counts time
+# Maya stores cache time in "ticks"; one tick = 1/6000 second. Frame ticks
+# are computed as frame_number * (TICKS_PRE_SECOND / fps).
 TICKS_PRE_SECOND = 6000
+
+# Cache version string "0.1\0" packed as a big-endian uint32 (0x302E3100).
+# Written into the header's CACHVRSN chunk.
+_CACHE_VERSION = 0x302E3100
 
 
 def removeNamespace(name, ns=''):
@@ -71,7 +72,6 @@ class NCacheXML(object):
                  channels=None,
                  cacheFormat='mcc',
                  cacheType='OneFilePerFrame'):
-        """"""
         channels = channels or ['Shape', ]
 
         self._fps = int(fps)
@@ -278,13 +278,17 @@ class NCacheXML(object):
 
 
 class NCacheMC(object):
-    """"""
+    """One-file-per-frame Maya cache data file (.mc / .mcx).
+
+    Writes always emit the OFPF binary layout (header + a single block, no
+    per-block TIME chunk); the current frame's tick value is encoded in the
+    header's STIM/ETIM fields.
+    """
     def __init__(self,
                  xml_path,
                  frame=1,
                  channels=None,
                  pointsArray=None):
-        """"""
         channels = channels or ['Shape', ]
         pointsArray = pointsArray or [[[0, 0, 0], ], ]
 
@@ -293,7 +297,10 @@ class NCacheMC(object):
         if os.path.exists(xml_path):
             xml.read()
 
+        # mcc header: 48 bytes, FOR4 container with 32-bit chunk lengths.
+        #   'FOR4' u32_len 'CACHVRSN' 4 version 'STIM' 4 start 'ETIM' 4 end
         self.__mcc_head_unpack_string = '>4sL8sLl4sLl4sLl'
+        # mcx header: 92 bytes, FOR8 container with 64-bit chunk lengths.
         self.__mcx_head_unpack_string = '>4sLQ8sLQ2L4sLQ2l4slQ2l'
         self._xmlpath = xml_path
 
@@ -363,12 +370,11 @@ class NCacheMC(object):
                     return None
 
                 name_length = int(math.ceil(float(temp[1]) / 4) * 4)
-                # temp = struct.unpack(
-                #     '>' + str(name_length) + 's', file.read(name_length))
+                file.read(name_length)
                 temp = struct.unpack('>4s2L4sl', file.read(20))
                 step += 8 + name_length + 20 + temp[4]
 
-                if temp[3] == 'FVCA':
+                if temp[3] == b'FVCA':
                     self._ele_amounts.append(temp[4] / 12)
                     pos = struct.unpack(
                         '>' + str(temp[2] * 3) + 'f',
@@ -377,7 +383,7 @@ class NCacheMC(object):
                     self._pointsArray.append(
                         np.array(pos, dtype=np.float32).reshape(-1, 3))
 
-                elif temp[3] == 'DVCA':
+                elif temp[3] == b'DVCA':
                     self._ele_amounts.append(temp[4] / 24)
                     pos = struct.unpack(
                         '>' + str(temp[2] * 3) + 'd',
@@ -386,7 +392,7 @@ class NCacheMC(object):
                     self._pointsArray.append(
                         np.array(pos, dtype=np.float64).reshape(-1, 3))
 
-                elif temp[3] == 'DBLA':
+                elif temp[3] == b'DBLA':
                     self._ele_amounts.append(temp[4] / 8)
                     pos = struct.unpack(
                         '>' + str(temp[2]) + 'd',
@@ -408,13 +414,12 @@ class NCacheMC(object):
                     return None
 
                 name_length = int(math.ceil(float(temp[2]) / 8) * 8)
-                # temp = struct.unpack(
-                #     '>' + str(name_length) + 's', file.read(name_length))
+                file.read(name_length)
                 temp = struct.unpack('>4sLQ2L4sLQ', file.read(40))
                 step_push = int(math.ceil(float(temp[7]) / 8) * 8)
                 step += 16 + name_length + 40 + step_push
 
-                if temp[5] == 'FVCA':
+                if temp[5] == b'FVCA':
                     self._ele_amounts.append(temp[7] / 12)
                     pos = struct.unpack(
                         '>' + str(temp[3] * 3) + 'f',
@@ -423,7 +428,7 @@ class NCacheMC(object):
                     self._pointsArray.append(
                         np.array(pos, dtype=np.float32).reshape(-1, 3))
 
-                elif temp[5] == 'DVCA':
+                elif temp[5] == b'DVCA':
                     self._ele_amounts.append(temp[7] / 24)
                     pos = struct.unpack(
                         '>' + str(temp[3] * 3) + 'd',
@@ -432,7 +437,7 @@ class NCacheMC(object):
                     self._pointsArray.append(
                         np.array(pos, dtype=np.float64).reshape(-1, 3))
 
-                elif temp[5] == 'DBLA':
+                elif temp[5] == b'DBLA':
                     self._ele_amounts.append(temp[7] / 8)
                     pos = struct.unpack(
                         '>' + str(temp[3]) + 'd',
@@ -492,7 +497,7 @@ class NCacheMC(object):
                     elif self._channelTypes[n] == 'DoubleVectorArray':
                         amount_size += len(i) * 2 * 3
                     elif self._channelTypes[n] == 'DoubleArray':
-                        amount_size += len(i) * 3
+                        amount_size += len(i) * 2
 
                 block = struct.pack(
                     '>4sLQ4s',
@@ -611,7 +616,7 @@ class NCacheMC(object):
                             4,
                             p_amount,
                             0,
-                            b'DVCA',
+                            b'DBLA',
                             0,
                             p_amount * 8
                         )
@@ -619,11 +624,11 @@ class NCacheMC(object):
                 f.write(data)
 
                 if self._channelTypes[i] == 'FloatVectorArray':
-                    f.write(pointsArray.reshape(-1).astype('>f4').tostring())
+                    f.write(pointsArray.reshape(-1).astype('>f4').tobytes())
                 elif self._channelTypes[i] == 'DoubleVectorArray':
-                    f.write(pointsArray.reshape(-1).astype('>f8').tostring())
+                    f.write(pointsArray.reshape(-1).astype('>f8').tobytes())
                 elif self._channelTypes[i] == 'DoubleArray':
-                    f.write(pointsArray.reshape(-1).astype('>f8').tostring())
+                    f.write(pointsArray.reshape(-1).astype('>f8').tobytes())
 
                 if self._format == 'mcx':
                     if self._channelTypes[i] == 'FloatVectorArray':
@@ -684,6 +689,10 @@ class NCacheMC(object):
         return self._ele_amounts
 
     def __genNameLength(self, ch):
+        # On-disk channel name = name bytes + NULL terminator, padded with
+        # extra NULL bytes so the total length is a multiple of 4 (mcc) or
+        # 8 (mcx). When len(ch) is already aligned, a full unit of padding
+        # is still appended.
         _unit = 4 if self._format == 'mcc' else 8
         _ch_len = len(ch)
 
@@ -701,7 +710,7 @@ class NCacheMC(object):
                 40,
                 b'CACHVRSN',
                 4,
-                808333568,
+                _CACHE_VERSION,
                 b'STIM',
                 4,
                 self.getTime(),
@@ -718,7 +727,7 @@ class NCacheMC(object):
                 b'CACHVRSN',
                 0,
                 4,
-                808333568,
+                _CACHE_VERSION,
                 0,
                 b'STIM',
                 0,
@@ -838,13 +847,96 @@ class NPCacheMC(NCacheMC):
         return self._xml.getEndFrame()
 
 
-def houdini_export():
+def houdini_geo_export():
+    """Export a Houdini point geometry sequence as a Maya geometry cache.
+
+    Each unique value of the prim 'name' string attribute becomes one channel
+    in the Maya geo cache. The name must match the Maya shape node name for
+    Maya to load it. Topology must be static across frames.
+
+    Source geometry must be baked (e.g. File Cache SOP / bgeo sequence).
+    A live DOP simulation connected directly will not produce correct results
+    because geometryAtFrame() does not drive DOP cooking.
+    """
     import hou  # noqa
-    import threading
+    from concurrent.futures import ThreadPoolExecutor
 
     node = hou.pwd()
-    alt_node = hou.pwd().path() + '/WRITE_OUT'
-    geo = hou.node(alt_node).geometry()
+    sop = hou.node(hou.pwd().path() + '/WRITE_OUT')
+    fps = hou.fps()
+
+    start_frame = node.parm('start_frame').eval()
+    end_frame = node.parm('end_frame').eval()
+    eval_rate = node.parm('eval_rate').eval()
+    xml_path = node.parm('xml').eval()
+    name_attr_name = node.parm('name_attr').eval()
+
+    ref_geo = sop.geometryAtFrame(start_frame)
+    name_attr = ref_geo.findPrimAttrib(name_attr_name)
+    if name_attr is None:
+        raise RuntimeError("Prim '%s' attribute not found." % name_attr_name)
+    if name_attr.dataType() != hou.attribData.String:
+        raise RuntimeError("Prim '%s' attribute must be a string type." % name_attr_name)
+    channels = [n for n in dict.fromkeys(ref_geo.primStringAttribValues(name_attr_name)) if n]
+
+    xml = NCacheXML(xml_path, fps=fps, startFrame=start_frame,
+                    endFrame=end_frame, evalStep=eval_rate, channels=channels)
+    xml.write()
+
+    sampling_rate = xml.getSamplingRate()
+    if sampling_rate <= 0:
+        raise RuntimeError("sampling_rate is %d; check eval_rate parameter." % sampling_rate)
+    time_per_frame = xml.getTimePerFrame()
+    _denom = max(float(end_frame - start_frame), 1.0)
+
+    with hou.InterruptableOperation(
+            "Cache", "Caching", open_interrupt_dialog=True) as operation:
+
+        with ThreadPoolExecutor() as pool:
+            for frame_whole in range(start_frame, end_frame + 1):
+                for tick in range(0, time_per_frame, sampling_rate):
+                    frame = frame_whole + (tick / time_per_frame)
+                    if frame > end_frame:
+                        break
+
+                    geo = sop.geometryAtFrame(frame)
+                    all_pos = np.frombuffer(
+                        geo.pointFloatAttribValuesAsString('P'),
+                        dtype=np.float32
+                    ).reshape(-1, 3)
+
+                    point_array = []
+                    for ch in channels:
+                        indices = sorted(set(
+                            pt.number()
+                            for prim in geo.prims()
+                            if prim.attribValue(name_attr_name) == ch
+                            for pt in prim.points()
+                        ))
+                        point_array.append(all_pos[indices])
+
+                    mc = NCacheMC(xml_path, frame=frame, channels=channels,
+                                  pointsArray=point_array)
+                    pool.submit(mc.write)
+
+                    _pro = float(frame - start_frame) / _denom
+                    _msg = "Exporting Frame %d from %d to %d" % (frame, start_frame, end_frame)
+                    operation.updateLongProgress(_pro, _msg)
+
+
+def houdini_export():
+    """Export a Houdini point geometry sequence as an nParticle cache.
+
+    Reads parameters from the wrapping HDA (start_frame, end_frame, eval_rate,
+    particle_name, xml). The Houdini attribute-to-Maya-attribute mapping below
+    MUST stay in sync with `_hou_geo_data`, which appends arrays to the cache
+    in the same order.
+    """
+    import hou  # noqa
+    from concurrent.futures import ThreadPoolExecutor
+
+    node = hou.pwd()
+    sop = hou.node(hou.pwd().path() + '/WRITE_OUT')
     fps = hou.fps()
 
     start_frame = node.parm('start_frame').eval()
@@ -852,7 +944,7 @@ def houdini_export():
     eval_rate = node.parm('eval_rate').eval()
     pname = node.parm('particle_name').eval()
 
-    attrs = [x.name() for x in geo.pointAttribs()]
+    attrs = [x.name() for x in sop.geometryAtFrame(start_frame).pointAttribs()]
     xml_path = node.parm('xml').eval()
 
     xml = NPCacheXML(xml_path)
@@ -879,56 +971,56 @@ def houdini_export():
 
     xml.write()
     sampling_rate = xml.getSamplingRate()
+    if sampling_rate <= 0:
+        raise RuntimeError("sampling_rate is %d; check eval_rate parameter." % sampling_rate)
     time_per_frame = xml.getTimePerFrame()
+    _denom = max(float(end_frame - start_frame), 1.0)
 
-    # Render
-    #
     visual_warning_once = True
-    #
     with hou.InterruptableOperation(
             "Cache", "Caching", open_interrupt_dialog=True) as operation:
 
-        threads = []
-        for frame_whole in range(start_frame, end_frame + 1):
-            for tick in range(0, time_per_frame, sampling_rate):
-                frame = frame_whole + (tick / time_per_frame)
-                if frame > end_frame:
-                    break
+        with ThreadPoolExecutor() as pool:
+            for frame_whole in range(start_frame, end_frame + 1):
+                for tick in range(0, time_per_frame, sampling_rate):
+                    frame = frame_whole + (tick / time_per_frame)
+                    if frame > end_frame:
+                        break
 
-                hou.setFrame(frame)
+                    geo = sop.geometryAtFrame(frame)
 
-                check_id_attr = geo.findPointAttrib('id')
-                if check_id_attr is None and visual_warning_once:
-                    hou.ui.displayMessage(
-                        'Point id attribute not found at frame %f' % frame
-                    )
-                    visual_warning_once = False
-                    break
+                    check_id_attr = geo.findPointAttrib('id')
+                    if check_id_attr is None and visual_warning_once:
+                        hou.ui.displayMessage(
+                            'Point id attribute not found at frame %f' % frame
+                        )
+                        visual_warning_once = False
+                        break
 
-                data_array = _hou_geo_data(geo, attrs)
+                    data_array = _hou_geo_data(geo, attrs)
 
-                mc = NPCacheMC(xml_path)
-                mc.setPointArray(data_array)
-                mc.setFrame(frame)
+                    mc = NPCacheMC(xml_path)
+                    mc.setPointArray(data_array)
+                    mc.setFrame(frame)
 
-                th = threading.Thread(target=mc.write)
-                th.start()
-                threads.append(th)
+                    pool.submit(mc.write)
 
-                _pro = float(frame - start_frame) / (end_frame - start_frame)
-                _msg = "Exporting Frame %d from %d to %d" % (frame, start_frame, end_frame)
-                operation.updateLongProgress(_pro, _msg)
-
-        for th in threads:
-            th.join()
+                    _pro = float(frame - start_frame) / _denom
+                    _msg = "Exporting Frame %d from %d to %d" % (frame, start_frame, end_frame)
+                    operation.updateLongProgress(_pro, _msg)
 
 
 def _hou_geo_data(geo, attrs):
+    """Collect Houdini point attributes as a list of numpy arrays.
+
+    The append order here MUST match the channel order produced by
+    `houdini_export` via `NPCacheXML.appendAttr`; channel index alignment
+    between XML and binary is what lets Maya map data back to attributes.
+    """
     import hou  # noqa
 
     data_array = []
 
-    # helpers
     def _int_64(attr):
         return geo.pointIntAttribValuesAsString(
             attr, int_type=hou.numericData.Int64
@@ -944,77 +1036,41 @@ def _hou_geo_data(geo, attrs):
             attr, float_type=hou.numericData.Float64
         )
 
-    id_array = np.fromstring(_int_64('id'), dtype=np.int64)
+    id_array = np.frombuffer(_int_64('id'), dtype=np.int64)
     data_array.append(id_array)
 
     count_array = np.array([len(geo.points())])
     data_array.append(count_array)
 
-    pos_array = np.fromstring(_float_32('P'), dtype=np.float32).reshape(-1, 3)
+    pos_array = np.frombuffer(_float_32('P'), dtype=np.float32).reshape(-1, 3)
     data_array.append(pos_array)
 
     if 'v' in attrs:
-        vel_array = np.fromstring(_float_32('v'), dtype=np.float32).reshape(-1, 3)
+        vel_array = np.frombuffer(_float_32('v'), dtype=np.float32).reshape(-1, 3)
         data_array.append(vel_array)
 
     if 'age' in attrs:
-        age_array = np.fromstring(_float_64('age'), dtype=np.float64)
+        age_array = np.frombuffer(_float_64('age'), dtype=np.float64)
         data_array.append(age_array)
 
     if 'life' in attrs:
-        life_array = np.fromstring(_float_64('life'), dtype=np.float64)
+        life_array = np.frombuffer(_float_64('life'), dtype=np.float64)
         data_array.append(life_array)
 
     if 'pscale' in attrs:
-        pscale_array = np.fromstring(_float_64('pscale'), dtype=np.float64)
+        pscale_array = np.frombuffer(_float_64('pscale'), dtype=np.float64)
         data_array.append(pscale_array)
 
     if 'Cd' in attrs:
-        cd_array = np.fromstring(_float_32('Cd'), dtype=np.float32).reshape(-1, 3)
+        cd_array = np.frombuffer(_float_32('Cd'), dtype=np.float32).reshape(-1, 3)
         data_array.append(cd_array)
 
     if 'Alpha' in attrs:
-        alpha_array = np.fromstring(_float_64('Alpha'), dtype=np.float64)
+        alpha_array = np.frombuffer(_float_64('Alpha'), dtype=np.float64)
         data_array.append(alpha_array)
 
     if 'rotation' in attrs:
-        rotation_array = np.fromstring(_float_32('rotation'), dtype=np.float32).reshape(-1, 3)
+        rotation_array = np.frombuffer(_float_32('rotation'), dtype=np.float32).reshape(-1, 3)
         data_array.append(rotation_array)
 
     return data_array
-
-
-"""
-if __name__ == '__main__':
-    path = ['D:/temp/ncache/p32.xml', 'D:/temp/ncache/p32d.xml', 'D:/temp/ncache/p64.xml', 'D:/temp/ncache/p64d.xml']
-    #path = ['D:/temp/ncache1/nParticleShape1.xml']
-    for xml in path:
-        print xml
-        x = NPCacheXML(xml)
-
-    #xml_path = 'D:/temp/ncache_p/np.xml'
-    xml_path = 'D:/temp/ncache4/nParticleShape1.xml'
-    #xml_path = path[2]
-    xml = NPCacheXML(xml_path)
-    xml.setStartFrame(1)
-    xml.setEndFrame(48)
-    xml.read()
-
-    print xml.getChannelTypes()
-    #print xml.getChannelTypes()
-
-    #xml.write()
-
-
-    mc = NPCacheMC(xml_path)
-    for i in range(1,5):
- 
-        mc.setFrame(i)
-        if mc.read():
-            for attr in mc.getAttrs():
-                if attr == 'count':
-                    print attr
-                    print mc.getAttrValues(attr)
-        #print mc.getAttrValues('radiusPP')
-        #mc.write()
-"""

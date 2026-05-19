@@ -1,0 +1,155 @@
+= Export Maya nParticles Cache =
+
+"""Exports Houdini point geometry as a Maya nParticle cache (.xml + .mc files)."""
+
+== Overview ==
+
+This node bakes a Houdini point sequence into the Maya nCache format
+(one `.mc` file per frame plus an `.xml` descriptor).  The resulting files
+can be loaded in Maya via __nCache > Attach Existing Cache__ on an nParticle
+object.
+
+The following Houdini point attributes are exported when present:
+
+table>>
+    tr>>
+        th>> Houdini attribute
+        th>> Maya channel
+        th>> Type
+    tr>>
+        td>> `P`
+        td>> `position`
+        td>> FloatVectorArray
+    tr>>
+        td>> `id`
+        td>> `id`
+        td>> DoubleArray
+    tr>>
+        td>> `v`
+        td>> `velocity`
+        td>> FloatVectorArray
+    tr>>
+        td>> `age`
+        td>> `age`
+        td>> DoubleArray
+    tr>>
+        td>> `life`
+        td>> `lifespanPP`
+        td>> DoubleArray
+    tr>>
+        td>> `pscale`
+        td>> `radiusPP`
+        td>> DoubleArray
+    tr>>
+        td>> `Cd`
+        td>> `rgbPP`
+        td>> FloatVectorArray
+    tr>>
+        td>> `Alpha`
+        td>> `opacityPP`
+        td>> DoubleArray
+    tr>>
+        td>> `rotation`
+        td>> `rotationPP`
+        td>> FloatVectorArray
+
+A synthetic `count` channel (particle count per frame) is always written.
+
+== Particle Name and Maya Node Naming ==
+
+The __Particle Name__ parameter is the single most important setting for
+Maya compatibility.
+
+The value you enter here — call it `<name>` — determines the prefix of every
+channel written into the cache:
+
+{{{
+channel names = <name>Shape_id
+                <name>Shape_count
+                <name>Shape_position
+                <name>Shape_velocity
+                ...
+}}}
+
+Maya's nCache system identifies which nParticle object a cache belongs to by
+matching this prefix against the nParticle *shape node name*.  The shape node
+must be named exactly `<name>Shape`.
+
+:tip:
+    Before exporting, check the name of your Maya nParticle shape node in
+    Maya's Outliner (with __Shapes__ visible).  If it reads `nParticleShape`,
+    set __Particle Name__ to `nParticle`.  If it reads `smokeShape`, set it
+    to `smoke`, and so on.
+
+Example:
+
+table>>
+    tr>>
+        th>> Particle Name
+        th>> Cache channel prefix
+        th>> Required Maya shape name
+    tr>>
+        td>> `nParticle`
+        td>> `nParticleShape_*`
+        td>> `nParticleShape`
+    tr>>
+        td>> `particle`
+        td>> `particleShape_*`
+        td>> `particleShape`
+    tr>>
+        td>> `dust`
+        td>> `dustShape_*`
+        td>> `dustShape`
+
+If the prefix does not match the Maya shape name, Maya silently skips the
+cache and the particles will not play back from the file.
+
+== Parameters ==
+
+Start Frame:
+    First frame to cache.
+
+End Frame:
+    Last frame to cache (inclusive).
+
+Evaluation Rate:
+    Fraction of a frame between successive cache samples.  `1` = one sample
+    per frame.  `0.5` = two samples per frame (sub-frame caching).
+
+XML:
+    Full path to the output `.xml` descriptor file, including filename and
+    extension.  The per-frame `.mc` files are written to the same directory
+    with the pattern `<base>Frame<N>.mc`.
+
+Particle Name:
+    #id: particle_name
+
+    Base name of the particle system.  The HDA appends `Shape` internally,
+    so the value `nParticle` produces a shape prefix of `nParticleShape`.
+
+    This value must match the nParticle shape node name in your Maya scene.
+    See __Particle Name and Maya Node Naming__ above for details.
+
+Cache:
+    Click to start the export.  Houdini will step through every frame in the
+    range, collect point data, and write the binary `.mc` files in parallel
+    threads.  A progress dialog allows cancellation.
+
+Python Module Path:
+    Path to `nCache.py`.  Required at runtime; the HDA loads the module from
+    this path each time __Cache__ is pressed so that the script can be updated
+    without reimporting the HDA.
+
+== How to Attach the Cache in Maya ==
+
+# Create or select the nParticle object whose shape name matches your
+  __Particle Name__ setting.
+# In Maya, go to __FX > nCache > Attach Existing Cache__.
+# Select the `.xml` file exported by this HDA.
+# Maya reads the XML, finds the matching nParticle by channel prefix, and
+  wires up the `cacheFile` node automatically.
+
+:note:
+    If you use __File > Import__ instead of __Attach Existing Cache__, Maya
+    will not set up the nParticle cache connections and the file will appear
+    to load without effect.

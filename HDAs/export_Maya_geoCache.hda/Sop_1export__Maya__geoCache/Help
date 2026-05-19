@@ -1,0 +1,69 @@
+= Export Maya geoCache =
+
+"""Exports Houdini point geometry as a Maya geometry cache (.xml + .mc files)."""
+
+== Overview ==
+
+This node bakes a Houdini geometry sequence into the Maya geometry cache
+format (one `.mc` file per frame plus an `.xml` descriptor). The resulting
+files can be loaded in Maya via __Cache > Geometry Cache > Attach Existing
+Cache__.
+
+Each unique value of the prim string attribute (set in __Name Attribute__)
+becomes one channel in the cache.  Maya maps each channel to a mesh by
+matching the channel name against the mesh's **shape node name**.
+
+== The `name` Attribute and Maya Shape Nodes ==
+
+The prim attribute value must match the Maya **shape node name** — not the
+transform node name.
+
+:tip:
+    In Maya's Outliner, enable __Show > Shapes__ to see shape nodes.  Shape
+    node names typically end in `Shape` (e.g. the transform `pSphere1` has a
+    shape node named `pSphereShape1`).  Use that shape node name as the prim
+    attribute value in Houdini.
+
+:warning:
+    Maya drives deformation by replacing vertex positions in index order.
+    The point count and point order for each name value must be identical to
+    the target Maya mesh and must not change between frames.
+
+== Parameters ==
+
+Start Frame:
+    First frame to cache.
+
+End Frame:
+    Last frame to cache (inclusive).
+
+Evaluation Rate:
+    Fraction of a frame between successive cache samples.  `1` = one sample
+    per frame.  `0.5` = two samples per frame (sub-frame caching).
+
+XML:
+    Full path to the output `.xml` descriptor file.  Per-frame `.mc` files
+    are written to the same directory as `<base>Frame<N>.mc`.
+
+Name Attribute:
+    Name of the prim string attribute used to identify which Maya shape node
+    each primitive belongs to.  Defaults to `name`.  Primitives with an
+    empty value are skipped.
+
+Cache:
+    Click to start the export.  A progress dialog allows cancellation.
+
+Python Module Path:
+    Path to `nCache.py`.  The HDA loads the module from this path each time
+    __Cache__ is pressed.
+
+== How to Attach the Cache in Maya ==
+
+# Select one or more mesh objects in Maya.
+# Go to __Cache > Geometry Cache > Attach Existing Cache__.
+# Select the `.xml` file exported by this HDA.
+# Maya matches each channel to a selected shape by name and wires up the
+  connections automatically.  Shapes with no matching channel are skipped.
+
+:note:
+    Do not use __File > Import__ — it will not set up the cache connections.

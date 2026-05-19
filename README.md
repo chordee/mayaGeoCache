@@ -1,118 +1,142 @@
 # mayaGeoCache I/O
 
-這是之前為了交換檔案寫給 Maya Geo Cache 的 python class，用來讀寫 Maya Geo Cache，後來增加支援至 nParticle Cache。但只支援 One File Per Frame 的格式 
-不管是 Geo Cache 還是 nParticle Cache 都重度仰賴一開始產生的 XML 檔，所以如果需要寫入請務必先用 XML class 產生正確的 XML file。
+Python classes for reading and writing Maya Geometry Cache and nParticle
+Cache files, plus Houdini HDA wrappers for exporting both cache types from
+a Houdini point geometry sequence.
 
+**nParticle Cache targets Maya's nParticles system** (Nucleus solver,
+introduced in Maya 2009) — not the legacy `particle` object.  If your
+scene uses the old particle system, use Geometry Cache instead.
 
-# class NCacheXML
-NCacheXML(xml, fps = 24, startFrame = 1, endFrame = 200, channel = ['Shape',], cacheFormat = 'mcc', cacheType = 'OneFilePerFrame')  
-*xml 為 xml file 的路徑位置*  
+Only the **One File Per Frame** layout is supported. Both Geometry Cache and
+nParticle Cache depend on the XML description file, so any write path must
+start by producing a valid XML through the `NCacheXML` / `NPCacheXML`
+classes.
 
-read() *讀取已存在的 xml 內容*  
+The binary layout follows the public reverse-engineered nCache bitstream
+spec by 100cells (Maya 8.5+ chunk tags: `FVCA`, `DVCA`, `DBLA`). Maya stores
+time in *ticks* of `1/6000` second.
 
-write() *將目前的內容寫入 xml*  
+## class NCacheXML
 
-  
-setXMLPath(xml) *指定新的 xml 路徑*
+```python
+NCacheXML(xml,
+          fps=24,
+          startFrame=1,
+          endFrame=200,
+          evalStep=1.0,
+          channels=None,
+          cacheFormat='mcc',
+          cacheType='OneFilePerFrame')
+```
 
-setFps(fps)
+`xml` is the path to the XML description file. `evalStep` is the evaluation
+interval in frames (`0.5` for two samples per frame, `1.0` for one).
 
-setStartFrame(frame)
+- `read()` — load an existing XML file into this instance.
+- `write()` — serialize the current state to the XML path.
+- `setXMLPath(xml)` / `getXMLPath()`
+- `setFps(fps)` / `getFps()`
+- `setStartFrame(frame)` / `getStartFrame()`
+- `setEndFrame(frame)` / `getEndFrame()`
+- `setSamplingRate(step)` / `getSamplingRate()` — sampling rate in ticks.
+- `setChannels(channels)` / `getChannels()`
+- `setFormat(fmt)` / `getFormat()` — `'mcc'` or `'mcx'`.
+- `appendChannel(chName, chType='FloatVectorArray', chInter='positions')`
+- `setChannelTypes(types)` / `getChannelTypes()` — each entry is one of
+  `'DoubleArray'`, `'FloatVectorArray'`, `'DoubleVectorArray'`. For Geometry
+  Cache all channels should share the same type.
+- `setChannelInters(inters)` / `getChannelInters()`
+- `getXMLString()` — current XML serialization as a string.
 
-setEndFrame(frame)
+## class NCacheMC
 
-setChannels(ch)
+```python
+NCacheMC(xml_path, frame=1, channels=None, pointsArray=None)
+```
 
-setFormat(fmt) * fmt = 'mcc' or 'mcx' *
+A single cache data file. The on-disk path is derived from `xml_path` and
+`frame`; `pointsArray` is a list of numpy 2D arrays (one per channel).
 
-appendChannel(chName, chType = 'FloatVectorArray', chInter = "positions")
+- `read()` / `write()`
+- `setFrame(frame)` / `getFrame()`
+- `setXMLPath(xml_path)`
+- `setChannels(channels)` / `getChannels()`
+- `setPointArray(pArray)` / `getPointArray()`
+- `getAmount()` — total point count across all channels.
+- `getPath()` — current cache file path.
+- `getChannelTypes()`
+- `getEleAmounts()` — per-channel element count.
 
-setChannelTypes(ch_types) * str List 包含 'FloatVectorArray' or 'DoubleVectorArray' 如果是 Geo Cache 建議所有 Channel 都一樣*
+## class NPCacheXML
 
-setChannelInters(chInters)
+Subclass of `NCacheXML` specialized for nParticle caches. nParticle channels
+carry per-attribute data of varying type and length, so the parent's
+`ChannelInterpretation` field is repurposed as the attribute name. Channel
+names are auto-generated from the nParticle node name and the attribute.
+Channel types are passed as integer tags:
 
-  
-getChannels() *回傳目前所有 channel 的字串 list*
+| code | type                |
+| ---- | ------------------- |
+| 0    | `DoubleArray`       |
+| 1    | `FloatVectorArray`  |
+| 2    | `DoubleVectorArray` |
 
- 
-getFps()
+```python
+NPCacheXML(xml_path,
+           name='nParticleShape',
+           attrs=['id', 'count', 'position'],
+           chTypes=[0, 0, 1])
+```
 
-getStartFrame()
+The `id` attribute is required.
 
-getEndFrame()
+- `setName(name)` / `getName()`
+- `setAttrs(attrs)` — list of attribute names.
+- `setChannelTypes(chTypes)` — list of integer tags as above.
+- `appendAttr(attr, attrType)` — `attr` str, `attrType` int.
 
-getXMLString() *回傳目前的 XML 的文字內容*
+## class NPCacheMC
 
-getFormat() * return 'mcc' or 'mcx' *
+Subclass of `NCacheMC` with per-attribute accessors. Attribute values come
+back as numpy arrays whose shape depends on the channel type: vector arrays
+are `n x 3`, scalar arrays are 1D, and `count` is a single-element array.
 
-getChannelTypes()
+```python
+NPCacheMC(xml_path)
+```
 
-getChannelInters()
+- `getName()` / `getAttrs()`
+- `getAttrValues(attr)` — numpy array for the named attribute.
+- `getStartFrame()` / `getEndFrame()`
 
-# class Cache File
+## HDAs
 
-NCacheMC(xml_path, frame = 1, channel = ['Shape',], pointsArray = [[[0,0,0],],])  
+The `HDAs/` directory contains Houdini Digital Assets for exporting caches
+from Houdini. See [HDAs/README.md](HDAs/README.md) for details on each HDA,
+including parameter descriptions and how to match the `particle_name` setting
+to your Maya scene.
 
-*cache 檔的路徑由 xml_path 和 frame 自動產生，pointArray 為 numpy array 的 list*
+## Houdini export
 
-read() *讀取 cache 檔內容*
+`houdini_export()` is the entry point invoked from the HDA's PythonModule,
+which loads `nCache.py` at runtime via `importlib.util`. It reads the HDA
+parameters (`start_frame`, `end_frame`,
+`eval_rate`, `particle_name`, `xml`), inspects the point attributes on the
+`WRITE_OUT` SOP, and writes one `.mc` per (frame, sub-frame) pair. The
+Houdini attribute names are mapped to the conventional Maya nParticle
+attributes:
 
-write() *寫入 cache 檔內容*
+| Houdini  | Maya nParticle | Channel type        |
+| -------- | -------------- | ------------------- |
+| `id`     | `id`           | `DoubleArray`       |
+| `P`      | `position`     | `FloatVectorArray`  |
+| `v`      | `velocity`     | `FloatVectorArray`  |
+| `age`    | `age`          | `DoubleArray`       |
+| `life`   | `lifespanPP`   | `DoubleArray`       |
+| `pscale` | `radiusPP`     | `DoubleArray`       |
+| `Cd`     | `rgbPP`        | `FloatVectorArray`  |
+| `Alpha`  | `opacityPP`    | `DoubleArray`       |
+| `rotation` | `rotationPP` | `FloatVectorArray`  |
 
-setFrame(frame)
-
-setXMLPath(xml_path)
-
-setChannels(channels)
-
-setPointArray(pArray) *pArray 為 List 裡面放置 numpy 2D array*
-
-getAmount() *回傳總共 points 數量*
-
-getFrame()
-
-getPath() *回傳目前 cache 檔的路徑位置*
-
-getCannelTypes()
-
-getEleAmounts() *List: 回傳各個 cahnnel 的點數量*
-
-getPointArray()
-
-# class NPCacheXML
-
-繼承自 NCacheXML，是 nParticle Cache 專用的 XML class，有針對 Particle 的屬性操作新增 function。nParticle 的 Channel 和 PointArray 都會因為屬性的內容具有不同的類型和長度，用 attr 取代本來的 Channel Interpretation。Channel 名稱也用 nParticle name 和 attrs 自動產生。因為每個屬性會具有不同類型，Channel Type 為了方便改為整數標記。預設具有 count、id、position 屬性。id 屬性為必須傭有。
-
-0 = 'DoubleArray
-
-1 = 'FloatVectorArray'
-
-2 = 'DoubleVectorArray'
-
-NPCacheXML(xml_path, name = 'nParticleShape', attrs = ['id', 'count', 'position'], chTypes = [0, 0, 1])
-
-setName(name)
-
-setAttrs(attrs) *str list*
-
-setChannelTypes(chTypes) *int list*
-
-appendAttr(attr, attrType) *attr: str，attrType: int*
-
-getName()
-
-# class NPCacheMC
-
-繼承自 NCacheMC 具有 attr 操作的 function。attr value 因屬性不同會具有不同長度的 numpy array。如果是 VectorArray 就是 n x 3 array，DoubleAray 就是 1d array。count 屬性是只具有一個整數單位的 array。
-
-NPCacheMC(xml)
-
-getName()
-
-getAttrs()
-
-getAttrValues(attr) *取得屬性的 numpy array*
-
-getStartFrame()
-
-getEndFrame()
+`id` must exist on every frame; export aborts with a warning if it does not.

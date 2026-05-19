@@ -131,5 +131,16 @@ dmypy.json
 # Jetbrains
 .idea/
 
-# Houdini HDA
+# Houdini HDA (binary/unexpanded)
 *.hda
+!HDAs/export_Maya_nParticles_cache.hda
+!HDAs/export_Maya_nParticles_cache.hda/**
+!HDAs/export_Maya_geoCache.hda
+!HDAs/export_Maya_geoCache.hda/**
+!HDAs/README.md
+
+# HDA backups
+HDAs/backup/
+
+# Examples
+examples/
