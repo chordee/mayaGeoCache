@@ -20,19 +20,19 @@ Content-Type: text/plain
 
 sopflags sopflags = 
 comment ""
-position -0.994834 -1.46593
+position -2.23142 -4.38766
 connectornextid 1
-flags =  lock off model off template off footprint off xray off bypass off display on render on highlight off unload off savedata off compress on colordefault on exposed on
+flags =  lock off model off template off footprint off xray off bypass off display off render off highlight off unload off savedata off compress on colordefault on exposed on
 outputsNamed3
 {
 }
 inputsNamed3
 {
-0 	cache1 1 1 "input1"
+0 	color2 1 1 "input1"
 }
 inputs
 {
-0 	cache1 0 1
+0 	color2 0 1
 }
 stat
 {
