@@ -1,12 +1,17 @@
 
 import importlib.util
+import os
 import hou
 
 
 def cache():
     node = hou.pwd()
     path = node.parm('module_path').eval()
+    if not path or not os.path.isfile(path):
+        raise hou.NodeError("Python Module Path is not set or file not found: %s" % path)
     spec = importlib.util.spec_from_file_location('nCache', path)
+    if spec is None:
+        raise hou.NodeError("Failed to create module spec from: %s" % path)
     nc = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(nc)
     nc.houdini_export()

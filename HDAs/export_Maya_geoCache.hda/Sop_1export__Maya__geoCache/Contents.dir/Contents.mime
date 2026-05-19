@@ -48,7 +48,7 @@ stat
 {
   create 1501474793
   modify 1501474796
-  author Chordee@MoonShineExp16
+  author nobody
   access 0777
 }
 color UT_Color RGB 0.8 0.8 0.8 
@@ -106,7 +106,7 @@ stat
 {
   create 1500303717
   modify 1500304108
-  author Chordee@MoonShineExp16
+  author nobody
   access 0777
 }
 color UT_Color RGB 0.8 0.8 0.8 
@@ -185,7 +185,7 @@ stat
 {
   create 1500303740
   modify 1500303779
-  author Chordee@MoonShineExp16
+  author nobody
   access 0777
 }
 color UT_Color RGB 0.8 0.8 0.8 
@@ -248,7 +248,7 @@ stat
 {
   create 1500303901
   modify 1500304012
-  author Chordee@MoonShineExp16
+  author nobody
   access 0777
 }
 color UT_Color RGB 0.8 0.8 0.8 
@@ -310,7 +310,7 @@ stat
 {
   create 1500304022
   modify 1500304435
-  author Chordee@MoonShineExp16
+  author nobody
   access 0777
 }
 color UT_Color RGB 0.6 0.7 0.77 
@@ -370,7 +370,7 @@ stat
 {
   create 1500304045
   modify 1500304057
-  author Chordee@MoonShineExp16
+  author nobody
   access 0777
 }
 color UT_Color RGB 0.8 0.8 0.8 
@@ -430,7 +430,7 @@ stat
 {
   create 1500304435
   modify 1500304506
-  author Chordee@MoonShineExp16
+  author nobody
   access 0777
 }
 color UT_Color RGB 0.8 0.8 0.8 

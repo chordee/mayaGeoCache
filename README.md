@@ -19,7 +19,7 @@ time in *ticks* of `1/6000` second.
 
 ## class NCacheXML
 
-```
+```python
 NCacheXML(xml,
           fps=24,
           startFrame=1,
@@ -51,7 +51,7 @@ interval in frames (`0.5` for two samples per frame, `1.0` for one).
 
 ## class NCacheMC
 
-```
+```python
 NCacheMC(xml_path, frame=1, channels=None, pointsArray=None)
 ```
 
@@ -82,7 +82,7 @@ Channel types are passed as integer tags:
 | 1    | `FloatVectorArray`  |
 | 2    | `DoubleVectorArray` |
 
-```
+```python
 NPCacheXML(xml_path,
            name='nParticleShape',
            attrs=['id', 'count', 'position'],
@@ -102,7 +102,7 @@ Subclass of `NCacheMC` with per-attribute accessors. Attribute values come
 back as numpy arrays whose shape depends on the channel type: vector arrays
 are `n x 3`, scalar arrays are 1D, and `count` is a single-element array.
 
-```
+```python
 NPCacheMC(xml_path)
 ```
 

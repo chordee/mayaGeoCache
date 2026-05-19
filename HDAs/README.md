@@ -33,7 +33,7 @@ Exports a Houdini point sequence as a Maya **nParticle cache**
 The HDA appends `Shape` to whatever you enter and uses the result as the
 **prefix** for every channel in the cache:
 
-```
+```text
 channel names = <particle_name>Shape_id
                 <particle_name>Shape_count
                 <particle_name>Shape_position

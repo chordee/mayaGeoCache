@@ -859,7 +859,7 @@ def houdini_geo_export():
     because geometryAtFrame() does not drive DOP cooking.
     """
     import hou  # noqa
-    import threading
+    from concurrent.futures import ThreadPoolExecutor
 
     node = hou.pwd()
     sop = hou.node(hou.pwd().path() + '/WRITE_OUT')
@@ -884,46 +884,44 @@ def houdini_geo_export():
     xml.write()
 
     sampling_rate = xml.getSamplingRate()
+    if sampling_rate <= 0:
+        raise RuntimeError("sampling_rate is %d; check eval_rate parameter." % sampling_rate)
     time_per_frame = xml.getTimePerFrame()
+    _denom = max(float(end_frame - start_frame), 1.0)
 
     with hou.InterruptableOperation(
             "Cache", "Caching", open_interrupt_dialog=True) as operation:
 
-        threads = []
-        for frame_whole in range(start_frame, end_frame + 1):
-            for tick in range(0, time_per_frame, sampling_rate):
-                frame = frame_whole + (tick / time_per_frame)
-                if frame > end_frame:
-                    break
+        with ThreadPoolExecutor() as pool:
+            for frame_whole in range(start_frame, end_frame + 1):
+                for tick in range(0, time_per_frame, sampling_rate):
+                    frame = frame_whole + (tick / time_per_frame)
+                    if frame > end_frame:
+                        break
 
-                geo = sop.geometryAtFrame(frame)
-                all_pos = np.frombuffer(
-                    geo.pointFloatAttribValuesAsString('P'),
-                    dtype=np.float32
-                ).reshape(-1, 3)
+                    geo = sop.geometryAtFrame(frame)
+                    all_pos = np.frombuffer(
+                        geo.pointFloatAttribValuesAsString('P'),
+                        dtype=np.float32
+                    ).reshape(-1, 3)
 
-                point_array = []
-                for ch in channels:
-                    indices = sorted(set(
-                        pt.number()
-                        for prim in geo.prims()
-                        if prim.attribValue(name_attr_name) == ch
-                        for pt in prim.points()
-                    ))
-                    point_array.append(all_pos[indices])
+                    point_array = []
+                    for ch in channels:
+                        indices = sorted(set(
+                            pt.number()
+                            for prim in geo.prims()
+                            if prim.attribValue(name_attr_name) == ch
+                            for pt in prim.points()
+                        ))
+                        point_array.append(all_pos[indices])
 
-                mc = NCacheMC(xml_path, frame=frame, channels=channels,
-                              pointsArray=point_array)
-                th = threading.Thread(target=mc.write)
-                th.start()
-                threads.append(th)
+                    mc = NCacheMC(xml_path, frame=frame, channels=channels,
+                                  pointsArray=point_array)
+                    pool.submit(mc.write)
 
-                _pro = float(frame - start_frame) / (end_frame - start_frame)
-                _msg = "Exporting Frame %d from %d to %d" % (frame, start_frame, end_frame)
-                operation.updateLongProgress(_pro, _msg)
-
-        for th in threads:
-            th.join()
+                    _pro = float(frame - start_frame) / _denom
+                    _msg = "Exporting Frame %d from %d to %d" % (frame, start_frame, end_frame)
+                    operation.updateLongProgress(_pro, _msg)
 
 
 def houdini_export():
@@ -935,7 +933,7 @@ def houdini_export():
     in the same order.
     """
     import hou  # noqa
-    import threading
+    from concurrent.futures import ThreadPoolExecutor
 
     node = hou.pwd()
     sop = hou.node(hou.pwd().path() + '/WRITE_OUT')
@@ -973,45 +971,43 @@ def houdini_export():
 
     xml.write()
     sampling_rate = xml.getSamplingRate()
+    if sampling_rate <= 0:
+        raise RuntimeError("sampling_rate is %d; check eval_rate parameter." % sampling_rate)
     time_per_frame = xml.getTimePerFrame()
+    _denom = max(float(end_frame - start_frame), 1.0)
 
     visual_warning_once = True
     with hou.InterruptableOperation(
             "Cache", "Caching", open_interrupt_dialog=True) as operation:
 
-        threads = []
-        for frame_whole in range(start_frame, end_frame + 1):
-            for tick in range(0, time_per_frame, sampling_rate):
-                frame = frame_whole + (tick / time_per_frame)
-                if frame > end_frame:
-                    break
+        with ThreadPoolExecutor() as pool:
+            for frame_whole in range(start_frame, end_frame + 1):
+                for tick in range(0, time_per_frame, sampling_rate):
+                    frame = frame_whole + (tick / time_per_frame)
+                    if frame > end_frame:
+                        break
 
-                geo = sop.geometryAtFrame(frame)
+                    geo = sop.geometryAtFrame(frame)
 
-                check_id_attr = geo.findPointAttrib('id')
-                if check_id_attr is None and visual_warning_once:
-                    hou.ui.displayMessage(
-                        'Point id attribute not found at frame %f' % frame
-                    )
-                    visual_warning_once = False
-                    break
+                    check_id_attr = geo.findPointAttrib('id')
+                    if check_id_attr is None and visual_warning_once:
+                        hou.ui.displayMessage(
+                            'Point id attribute not found at frame %f' % frame
+                        )
+                        visual_warning_once = False
+                        break
 
-                data_array = _hou_geo_data(geo, attrs)
+                    data_array = _hou_geo_data(geo, attrs)
 
-                mc = NPCacheMC(xml_path)
-                mc.setPointArray(data_array)
-                mc.setFrame(frame)
+                    mc = NPCacheMC(xml_path)
+                    mc.setPointArray(data_array)
+                    mc.setFrame(frame)
 
-                th = threading.Thread(target=mc.write)
-                th.start()
-                threads.append(th)
+                    pool.submit(mc.write)
 
-                _pro = float(frame - start_frame) / (end_frame - start_frame)
-                _msg = "Exporting Frame %d from %d to %d" % (frame, start_frame, end_frame)
-                operation.updateLongProgress(_pro, _msg)
-
-        for th in threads:
-            th.join()
+                    _pro = float(frame - start_frame) / _denom
+                    _msg = "Exporting Frame %d from %d to %d" % (frame, start_frame, end_frame)
+                    operation.updateLongProgress(_pro, _msg)
 
 
 def _hou_geo_data(geo, attrs):
