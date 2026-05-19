@@ -1,8 +1,8 @@
 # mayaGeoCache I/O
 
 Python classes for reading and writing Maya Geometry Cache and nParticle
-Cache files, plus Houdini HDA wrappers for exporting both cache types from
-a Houdini point geometry sequence.
+Cache files, plus Houdini HDA wrappers for importing and exporting both
+cache types.
 
 **nParticle Cache targets Maya's nParticles system** (Nucleus solver,
 introduced in Maya 2009) — not the legacy `particle` object.  If your
@@ -112,10 +112,10 @@ NPCacheMC(xml_path)
 
 ## HDAs
 
-The `HDAs/` directory contains Houdini Digital Assets for exporting caches
-from Houdini. See [HDAs/README.md](HDAs/README.md) for details on each HDA,
-including parameter descriptions and how to match the `particle_name` setting
-to your Maya scene.
+The `HDAs/` directory contains Houdini Digital Assets for importing and
+exporting Maya caches. See [HDAs/README.md](HDAs/README.md) for details on
+each HDA, including parameter descriptions and how to match the
+`particle_name` setting to your Maya scene.
 
 ## Houdini export
 
